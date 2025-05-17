@@ -1,0 +1,73 @@
+unlock:
+  name: Unlock
+  description: Unlock Access
+  fields:
+    sip_info:
+      name: SIP Contact
+      description: SIP Contact, such as 10019901@172.16.0.101:5060.
+      required: true
+      selector:
+        text: {}
+
+appoint:
+  name: Appoint
+  description: Elev Appoint
+  fields:
+    sip_info:
+      name: SIP Contact
+      description: SIP Contact, such as 10019901@172.16.0.101:5060.
+      required: true
+      selector:
+        text: {}
+    direct:
+      name: Elev Direction
+      description: Elev direction.
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 2
+
+permit:
+  name: Permit
+  description: Elev Permit
+  fields:
+    sip_info:
+      name: SIP Contact
+      description: SIP Contact, such as 10019901@172.16.0.101:5060.
+      required: true
+      selector:
+        text: {}
+
+bye:
+  name: Bye
+  description: Hung up
+  fields:
+    sip_info:
+      name: SIP Contact
+      description: SIP Contact, such as 10019901@172.16.0.101:5060.
+      required: true
+      selector:
+        text: {}
+    call_id:
+      name: Call ID
+      description: Call ID of current call.
+      required: true
+      selector:
+        text: {}
+    tag:
+      name: Tag
+      description: Tag of current call.
+      selector:
+        text: {}
+
+execute:
+  name: Execute
+  description: Execute SIP CMD
+  fields:
+    json_data:
+      name: Json Data
+      description: Json data, such as {}.
+      required: true
+      selector:
+        text: {}

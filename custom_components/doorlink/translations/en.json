@@ -1,0 +1,139 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Configure DOORLINK",
+                "data": {
+                    "sip_info": "SIP Contact",
+                    "family": "Family ID",
+                    "elev_id": "Elevator ID",
+                    "openwrt_address": "OpenWrt IP Address",
+                    "ring_port": "Call Listening Port",
+                    "stations": "Outdoor Stations (JSON)",
+                    "live_supprt": "Live Streaming"
+                }
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Configure DOORLINK",
+                "data": {
+                    "sip_info": "SIP Contact",
+                    "family": "Family ID",
+                    "elev_id": "Elevator ID",
+                    "openwrt_address": "OpenWrt IP Address",
+                    "ring_port": "Call Listening Port",
+                    "stations": "Outdoor Stations (JSON)",
+                    "live_supprt": "Live Streaming"
+                }
+            }
+        }
+    },
+    "entity": {
+        "button": {
+            "unlock": {
+                "name": "Unlock Door"
+            },
+            "elev_permit": {
+                "name": "Grant Elevator Access"
+            },
+            "elev_up": {
+                "name": "Elevator Up"
+            },
+            "elev_down": {
+                "name": "Elevator Down"
+            }
+        },
+        "select": {
+            "contact_id": {
+                "name": "Select Outdoor Station"
+            }
+        },
+        "sensor": {
+            "last_event": {
+                "name": "Last Event",
+                "state": {
+                    "ring": "Someone Called the Indoor Monitor",
+                    "elev_up": "Elevator Moving Up",
+                    "elev_down": "Elevator Moving Down",
+                    "permit": "Elevator Access Granted",
+                    "unlock": "Door Unlocked",
+                    "bye": "Hung Up",
+                    "play_on_monitor": "Audio Played on Indoor Monitor",
+                    "play_on_station": "Video Played on Outdoor Station"
+                }
+            }
+        },
+        "binary_sensor": {
+            "ring_status": {
+                "name": "Ring Status"
+            }
+        }
+    },
+    "services": {
+        "unlock": {
+            "name": "Unlock Door",
+            "description": "Unlock the door",
+            "fields": {
+                "sip_info": {
+                    "name": "SIP Contact",
+                    "description": "SIP Contact, such as 10019901@172.16.0.101:5060."
+                }
+            }
+        },
+        "appoint": {
+            "name": "Elevator Appointment",
+            "description": "Control elevator direction (up or down)",
+            "fields": {
+                "sip_info": {
+                    "name": "SIP Contact",
+                    "description": "SIP Contact, such as 10019901@172.16.0.101:5060."
+                },
+                "direct": {
+                    "name": "Direction",
+                    "description": "Control elevator direction: 1 for Up, 2 for Down."
+                }
+            }
+        },
+        "permit": {
+            "name": "Grant Elevator Access",
+            "description": "Grant access to specific elevator floors.",
+            "fields": {
+                "sip_info": {
+                    "name": "SIP Contact",
+                    "description": "SIP Contact, such as 10019901@172.16.0.101:5060."
+                }
+            }
+        },
+        "bye": {
+            "name": "Hung Up",
+            "description": "Hung up current call.",
+            "fields": {
+                "sip_info": {
+                    "name": "SIP Contact",
+                    "description": "SIP Contact, such as 10019901@172.16.0.101:5060."
+                },
+                "call_id": {
+                    "name": "Call ID",
+                    "description": "Current Call-ID."
+                },
+                "tag": {
+                    "name": "Call TAG",
+                    "description": "Current TAG."
+                }
+            }
+        },
+        "execute": {
+            "name": "Execute Command",
+            "description": "Execute a command, supporting more complex instructions.",
+            "fields": {
+                "json_data": {
+                    "name": "JSON Data",
+                    "description": "JSON data."
+                }
+            }
+        }
+    }
+}

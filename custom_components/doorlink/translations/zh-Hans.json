@@ -1,0 +1,139 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "配置 DOORLINK",
+                "data": {
+                    "sip_info": "SIP信息",
+                    "family": "家庭ID",
+                    "elev_id": "电梯ID",
+                    "openwrt_address": "OpenWrt IP地址",
+                    "ring_port": "呼叫监听端口",
+                    "stations": "室外机设备 (JSON格式)",
+                    "live_supprt": "直播流支持"
+                }
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "配置 DOORLINK",
+                "data": {
+                    "sip_info": "SIP信息",
+                    "family": "家庭ID",
+                    "elev_id": "电梯ID",
+                    "openwrt_address": "OpenWrt IP地址",
+                    "ring_port": "呼叫监听端口",
+                    "stations": "室外机设备 (JSON格式)",
+                    "live_supprt": "直播流支持"
+                }
+            }
+        }
+    },
+    "entity": {
+        "button": {
+            "unlock": {
+                "name": "打开门禁"
+            },
+            "elev_permit": {
+                "name": "开放楼层"
+            },
+            "elev_up": {
+                "name": "电梯上行"
+            },
+            "elev_down": {
+                "name": "电梯下行"
+            }
+        },
+        "select": {
+            "contact_id": {
+                "name": "选择门禁设备"
+            }
+        },
+        "sensor": {
+            "last_event": {
+                "name": "最新事件",
+                "state": {
+                    "ring": "有人呼叫室内机",
+                    "elev_up": "电梯上行",
+                    "elev_down": "电梯下行",
+                    "permit": "开放楼层",
+                    "unlock": "打开门禁",
+                    "bye": "挂断会话",
+                    "play_on_monitor": "室内机播放音乐",
+                    "play_on_station": "室外机播放视频"
+                }
+            }
+        },
+        "binary_sensor": {
+            "ring_status": {
+                "name": "呼叫状态"
+            }
+        }
+    },
+    "services": {
+        "unlock": {
+            "name": "打开门禁",
+            "description": "打开门禁",
+            "fields": {
+                "sip_info": {
+                    "name": "SIP 信息",
+                    "description": "SIP 信息, such as 10019901@172.16.0.101:5060."
+                }
+            }
+        },
+        "appoint": {
+            "name": "预约电梯",
+            "description": "控制电梯上行或下行",
+            "fields": {
+                "sip_info": {
+                    "name": "SIP 信息",
+                    "description": "SIP 信息, such as 10019901@172.16.0.101:5060."
+                },
+                "direct": {
+                    "name": "运行方向",
+                    "description": "控制电梯运行方向。1: 上行，2: 下行。"
+                }
+            }
+        },
+        "permit": {
+            "name": "开放楼层",
+            "description": "开放电梯楼层。",
+            "fields": {
+                "sip_info": {
+                    "name": "SIP 信息",
+                    "description": "SIP 信息, such as 10019901@172.16.0.101:5060."
+                }
+            }
+        },
+        "bye": {
+            "name": "挂断电话",
+            "description": "挂断电话",
+            "fields": {
+                "sip_info": {
+                    "name": "SIP 信息",
+                    "description": "SIP 信息, such as 10019901@172.16.0.101:5060."
+                },
+                "call_id": {
+                    "name": "会话ID",
+                    "description": "当前会话的 Call-ID。"
+                },
+                "tag": {
+                    "name": "会话TAG",
+                    "description": "当前会话的 TAG。"
+                }
+            }
+        },
+        "execute": {
+            "name": "执行命令",
+            "description": "执行命令，支持更复杂的命令。",
+            "fields": {
+                "json_data": {
+                    "name": "Json 数据",
+                    "description": "Json 数据。"
+                }
+            }
+        }
+    }
+}
