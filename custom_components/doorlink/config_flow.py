@@ -117,7 +117,8 @@ class DoorlinkOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None):
         if user_input is not None:
-            stations = json.loads(user_input[CONF_STATIONS])
+            stations = Stations()
+            stations.load_from_string(user_input[CONF_STATIONS])
             await stations.save()
             return self.async_create_entry(data=user_input)
 
