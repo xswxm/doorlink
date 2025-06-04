@@ -7,6 +7,7 @@ from datetime import datetime
 import threading
 from functools import partial
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import parse_qs
 
 from .client import Client
 from .const import (
@@ -160,8 +161,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         self._entry_id = entry_id
         super().__init__(*args, **kwargs)
 
-    def _set_headers(self):
-        self.send_response(200)
+    def _parse_content_type(self, content_type):
+        if content_type:
+            return content_type.split(';', 1)[0].strip()
+        return ''
+
+    def _set_headers(self, status_code=200):
+        self.send_response(status_code)
         self.end_headers()
 
     def handle_post(self, payloads):
@@ -180,8 +186,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             'event': 'ring',
             'from': payloads['from'],
             'to': payloads['to'],
-            'tag': payloads['tag'],
-            'call_id': payloads['call_id'],
+            'tag': payloads.get('tag'),
+            'call_id': payloads.get('call_id'),
             'time': datetime.now().isoformat()
         }
         
@@ -202,23 +208,28 @@ class RequestHandler(BaseHTTPRequestHandler):
         )
 
     def do_POST(self):
-        content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length)
-
         try:
-            payloads = json.loads(post_data.decode('utf-8'))
-            _LOGGER.debug(f"Received data: {payloads}")
-
+            content_type = self._parse_content_type(self.headers.get('Content-Type', ''))
+            content_length = int(self.headers.get('Content-Length', 0))
+            raw_data = self.rfile.read(content_length).decode('utf-8')
+            if content_type == 'application/json':
+                payloads = json.loads(raw_data)
+                _LOGGER.debug(f"Received JSON data: {payloads}")
+            elif content_type == 'application/x-www-form-urlencoded':
+                payloads = {k: v[0] for k, v in parse_qs(raw_data, keep_blank_values=True).items()}
+                _LOGGER.debug(f"Received form-urlencoded data: {payloads}")
+            else:
+                _LOGGER.warning(f"Unsupported Content-Type: {content_type}")
+                self._set_headers(400)
+                return
             self.handle_post(payloads)
-
             self._set_headers()
-
         except UnicodeDecodeError as e:
             _LOGGER.debug(f"UnicodeDecodeError: {e}")
-            self.send_response(400)
-            self.end_headers()
+            self._set_headers(400)
         except Exception as e:
             _LOGGER.debug(f"Exception: {e}")
+            self._set_headers(400)
 
 def ring_service(server_class=HTTPServer, handler_class=RequestHandler, hass=None, entry_id=None, port=30884):
     server_address = ('', port)
