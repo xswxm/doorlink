@@ -45,7 +45,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     stations = Stations()
     await stations.load()
     hass.data[DOMAIN][entry.entry_id] = client
-    hass.data[DOMAIN][DEVICE_ID] = client.sip_contact.id
+    hass.data[DOMAIN][DEVICE_ID] = client.sip_contact.name
     hass.data[DOMAIN][STATIONS] = stations
     hass.data[DOMAIN][STATION_LIST] = list(hass.data[DOMAIN][STATIONS].contacts.keys())
 
@@ -174,9 +174,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         # update saved clients
         sip_contact = SIPContact(payloads['from'])
         
-        if sip_contact.id not in self._hass.data[DOMAIN][STATION_LIST]:
-            self._hass.data[DOMAIN][STATION_LIST].append(sip_contact.id)
-            self._hass.data[DOMAIN][STATIONS].contacts[sip_contact.id] = sip_contact
+        if sip_contact.name not in self._hass.data[DOMAIN][STATION_LIST]:
+            self._hass.data[DOMAIN][STATION_LIST].append(sip_contact.name)
+            self._hass.data[DOMAIN][STATIONS].contacts[sip_contact.name] = sip_contact
             self._hass.loop.call_soon_threadsafe(
                 create_task, 
                 self._hass.data[DOMAIN][STATIONS].save()

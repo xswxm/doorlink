@@ -12,9 +12,16 @@ class SIPContact:
             info = info + ':5060'
         self.info = info
         self.password = password
-        self.id, ip_port = info.split('@')
+        self.name, ip_port = info.split('@')
         self.ip, self.port = ip_port.split(':')
         self.port = int(self.port)
+        if self.name[-2] == '-':
+            self.no = self.name[-1]
+            self.id = self.name[:-2]
+        else:
+            self.no = None
+            self.id = self.name
+        self.id.replace('-', '')
         try:
             id = int(self.id)
             build_unit = id // 10000
@@ -28,6 +35,7 @@ class SIPContact:
             self.unit = None
             self.room = None
             self.floor = None
+
 
 class Stations:
     def __init__(self) -> None:
@@ -56,7 +64,7 @@ class Stations:
         data = json.loads(contents)
         for key, value in data.items():
             contact = SIPContact(key, value)
-            self.contacts[contact.id] = contact
+            self.contacts[contact.name] = contact
 
     async def save(self) -> None:
         await self.save_string(self.to_string())
@@ -77,7 +85,7 @@ async def load_json(filename: str) -> Dict[str, SIPContact]:
             _LOGGER.debug(f'Loaded data from {filename}: {data}')
             for key, value in data.items():
                 contact = SIPContact(key, value)
-                res[contact.id] = contact
+                res[contact.name] = contact
             return res
     except FileNotFoundError:
         _LOGGER.error(f'{filename} not found.')
