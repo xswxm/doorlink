@@ -4,7 +4,7 @@
             "user": {
                 "title": "Configure DOORLINK",
                 "data": {
-                    "sip_info": "SIP Contact",
+                    "sip_info": "Contact",
                     "family": "Family ID",
                     "elev_id": "Elevator ID",
                     "openwrt_address": "OpenWrt IP Address",
@@ -20,7 +20,7 @@
             "init": {
                 "title": "Configure DOORLINK",
                 "data": {
-                    "sip_info": "SIP Contact",
+                    "sip_info": "Contact",
                     "family": "Family ID",
                     "elev_id": "Elevator ID",
                     "openwrt_address": "OpenWrt IP Address",
@@ -78,8 +78,8 @@
             "description": "Unlock the door",
             "fields": {
                 "sip_info": {
-                    "name": "SIP Contact",
-                    "description": "SIP Contact, such as 10019901@172.16.0.101:5060."
+                    "name": "Contact",
+                    "description": "Contact, such as 10019901@172.16.0.101:5060."
                 }
             }
         },
@@ -88,8 +88,8 @@
             "description": "Control elevator direction (up or down)",
             "fields": {
                 "sip_info": {
-                    "name": "SIP Contact",
-                    "description": "SIP Contact, such as 10019901@172.16.0.101:5060."
+                    "name": "Contact",
+                    "description": "Contact, such as 10019901@172.16.0.101:5060."
                 },
                 "direct": {
                     "name": "Direction",
@@ -102,8 +102,8 @@
             "description": "Grant access to specific elevator floors.",
             "fields": {
                 "sip_info": {
-                    "name": "SIP Contact",
-                    "description": "SIP Contact, such as 10019901@172.16.0.101:5060."
+                    "name": "Contact",
+                    "description": "Contact, such as 10019901@172.16.0.101:5060."
                 }
             }
         },
@@ -112,8 +112,8 @@
             "description": "Hung up current call.",
             "fields": {
                 "sip_info": {
-                    "name": "SIP Contact",
-                    "description": "SIP Contact, such as 10019901@172.16.0.101:5060."
+                    "name": "Contact",
+                    "description": "Contact, such as 10019901@172.16.0.101:5060."
                 },
                 "call_id": {
                     "name": "Call ID",

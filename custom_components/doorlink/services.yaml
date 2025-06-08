@@ -3,8 +3,8 @@ unlock:
   description: Unlock Access
   fields:
     sip_info:
-      name: SIP Contact
-      description: SIP Contact, such as 10019901@172.16.0.101:5060.
+      name: Contact
+      description: Contact, such as 10019901@172.16.0.101:5060.
       required: true
       selector:
         text: {}
@@ -14,8 +14,8 @@ appoint:
   description: Elev Appoint
   fields:
     sip_info:
-      name: SIP Contact
-      description: SIP Contact, such as 10019901@172.16.0.101:5060.
+      name: Contact
+      description: Contact, such as 10019901@172.16.0.101:5060.
       required: true
       selector:
         text: {}
@@ -33,8 +33,8 @@ permit:
   description: Elev Permit
   fields:
     sip_info:
-      name: SIP Contact
-      description: SIP Contact, such as 10019901@172.16.0.101:5060.
+      name: Contact
+      description: Contact, such as 10019901@172.16.0.101:5060.
       required: true
       selector:
         text: {}
@@ -44,8 +44,8 @@ bye:
   description: Hung up
   fields:
     sip_info:
-      name: SIP Contact
-      description: SIP Contact, such as 10019901@172.16.0.101:5060.
+      name: Contact
+      description: Contact, such as 10019901@172.16.0.101:5060.
       required: true
       selector:
         text: {}

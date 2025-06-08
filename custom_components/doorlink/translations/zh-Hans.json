@@ -4,7 +4,7 @@
             "user": {
                 "title": "配置 DOORLINK",
                 "data": {
-                    "sip_info": "SIP信息",
+                    "sip_info": "室内机信息",
                     "family": "家庭ID",
                     "elev_id": "电梯ID",
                     "openwrt_address": "OpenWrt IP地址",
@@ -20,7 +20,7 @@
             "init": {
                 "title": "配置 DOORLINK",
                 "data": {
-                    "sip_info": "SIP信息",
+                    "sip_info": "室内机信息",
                     "family": "家庭ID",
                     "elev_id": "电梯ID",
                     "openwrt_address": "OpenWrt IP地址",
@@ -78,8 +78,8 @@
             "description": "打开门禁",
             "fields": {
                 "sip_info": {
-                    "name": "SIP 信息",
-                    "description": "SIP 信息, such as 10019901@172.16.0.101:5060."
+                    "name": "室外机信息",
+                    "description": "室外机信息, such as 10019901@172.16.0.101:5060."
                 }
             }
         },
@@ -88,8 +88,8 @@
             "description": "控制电梯上行或下行",
             "fields": {
                 "sip_info": {
-                    "name": "SIP 信息",
-                    "description": "SIP 信息, such as 10019901@172.16.0.101:5060."
+                    "name": "室外机信息",
+                    "description": "室外机信息, 如 10019901@172.16.0.101:5060."
                 },
                 "direct": {
                     "name": "运行方向",
@@ -102,8 +102,8 @@
             "description": "开放电梯楼层。",
             "fields": {
                 "sip_info": {
-                    "name": "SIP 信息",
-                    "description": "SIP 信息, such as 10019901@172.16.0.101:5060."
+                    "name": "室外机信息",
+                    "description": "室外机信息, 如 10019901@172.16.0.101:5060."
                 }
             }
         },
@@ -112,8 +112,8 @@
             "description": "挂断电话",
             "fields": {
                 "sip_info": {
-                    "name": "SIP 信息",
-                    "description": "SIP 信息, such as 10019901@172.16.0.101:5060."
+                    "name": "室外机信息",
+                    "description": "室外机信息, 如 10019901@172.16.0.101:5060."
                 },
                 "call_id": {
                     "name": "会话ID",

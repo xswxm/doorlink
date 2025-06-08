@@ -117,37 +117,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             hass.bus.fire('doorlink.execute', {'status': 'error', 'message': str(e)})
     hass.services.async_register(DOMAIN, 'execute', execute)
 
-    async def play_on_monitor(call):
-        """Handle the service call."""
-        target = call.data.get('target')
-        file_path = call.data.get('file_path')
-        music_length = call.data.get('music_length', 5)
-        _LOGGER.debug(f'play_on_monitor request received as {call.data}.')
-        try:
-            await client.play_on_monitor(target = target, file_path = file_path, music_length = music_length)
-            _LOGGER.debug(f'play_on_monitor request executed.')
-            hass.bus.fire('doorlink.play_on_monitor', {'status': 'success'})
-        except Exception as e:
-            _LOGGER.debug(f'play_on_monitor request failed: {e}.')
-            hass.bus.fire('doorlink.play_on_monitor', {'status': 'error', 'message': str(e)})
-    hass.services.async_register(DOMAIN, 'play_on_monitor', play_on_monitor)
-
-    async def play_on_station(call):
-        """Handle the service call."""
-        target = call.data.get('target')
-        file_path = call.data.get('file_path')
-        video_length = call.data.get('video_length', 20)
-        diable_gallery = call.data.get('diable_gallery', True)
-        _LOGGER.debug(f'play_on_station request received as {call.data}.')
-        try:
-            await client.play_on_station(target = target, file_path = file_path, video_length = video_length, diable_gallery=diable_gallery)
-            _LOGGER.debug(f'play_on_station request executed.')
-            hass.bus.fire('doorlink.play_on_station', {'status': 'success'})
-        except Exception as e:
-            _LOGGER.debug(f'play_on_station request failed: {e}.')
-            hass.bus.fire('doorlink.play_on_station', {'status': 'error', 'message': str(e)})
-    hass.services.async_register(DOMAIN, 'play_on_station', play_on_station)
-
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 

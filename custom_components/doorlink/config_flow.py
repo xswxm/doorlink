@@ -85,7 +85,7 @@ class DoorlinkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_ELEV_ID, description="Elev ID", default=DEFAULT_ELEV_ID): int,
                     vol.Optional(CONF_OPENWRT_ADDREDD, description="Openwrt Address", default=''): str,
                     vol.Required(CONF_RING_PORT, description="Ring listening port", default=DEFAULT_RING_PORT): int,
-                    vol.Required(CONF_LIVE_SUPPORT, description="Live Support", default=True): bool,
+                    vol.Required(CONF_LIVE_SUPPORT, description="Live Support", default=False): bool,
                     vol.Optional(CONF_STATIONS, description="Outdoor Stations", default=self.stations.to_string()): str,
                 }
             ),
