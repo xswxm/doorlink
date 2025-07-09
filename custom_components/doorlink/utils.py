@@ -64,7 +64,7 @@ class Stations:
         data = json.loads(contents)
         for key, value in data.items():
             contact = SIPContact(key, value)
-            self.contacts[contact.name] = contact
+            self.contacts[f'{contact.name}@{contact.ip}'] = contact
 
     async def save(self) -> None:
         await self.save_string(self.to_string())
