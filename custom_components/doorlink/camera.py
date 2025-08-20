@@ -10,7 +10,6 @@ from .const import (
 
     DEVICE_ID, 
     STATIONS, 
-    CONF_LIVE_SUPPORT,
 )
 
 import logging
@@ -18,23 +17,23 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     sensors = []
-    if entry.data[CONF_LIVE_SUPPORT]:
-        for key, val in hass.data[DOMAIN][STATIONS].contacts.items():
-            if val.password:
-                sensors.append(RTSPCamera(hass=hass, device_id=hass.data[DOMAIN][DEVICE_ID], name=f'{DOMAIN}_{key}', address=val.ip, password=val.password))
+    for key, val in hass.data[DOMAIN][STATIONS].contacts.items():
+        if val.rtsp_url:
+            sensors.append(RTSPCamera(hass=hass, device_id=hass.data[DOMAIN][DEVICE_ID], name=f'{hass.data[DOMAIN][DEVICE_ID]}_{val.ip}', stream_source=val.rtsp_url, rtsp_username=val.rtsp_username, rtsp_password=val.rtsp_passwod))
     async_add_entities(sensors)
 
 class RTSPCamera(Camera):
-    def __init__(self, hass, device_id, name, address, password):
+    def __init__(self, hass, device_id, name, stream_source, rtsp_username, rtsp_password):
         super().__init__()
         self._hass = hass
         self._name = name
         self._device_id = device_id
         self._attr_current_option = None
-        self._stream_source = Template(f"rtsp://{address}:8554/ch01", self._hass)
+        self._stream_source = Template(stream_source, self._hass)
         self._attr_frame_interval = 1 / 15
         self._attr_supported_features = CameraEntityFeature.STREAM
-        self._rtsp_password = password
+        self._rtsp_username = rtsp_username
+        self._rtsp_password = rtsp_password
 
     @property
     def use_stream_for_stills(self) -> bool:
@@ -79,7 +78,7 @@ class RTSPCamera(Camera):
         try:
             stream_url = self._stream_source.async_render(parse_result=False)
             url = yarl.URL(stream_url)
-            url = url.with_user("admin").with_password(self._rtsp_password)
+            url = url.with_user(self._rtsp_username).with_password(self._rtsp_password)
             return str(url)
         except TemplateError as err:
             _LOGGER.error("Error parsing template %s: %s", self._stream_source, err)

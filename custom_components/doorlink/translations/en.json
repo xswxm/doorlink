@@ -60,9 +60,7 @@
                     "elev_down": "Elevator Moving Down",
                     "permit": "Elevator Access Granted",
                     "unlock": "Door Unlocked",
-                    "bye": "Hung Up",
-                    "play_on_monitor": "Audio Played on Indoor Monitor",
-                    "play_on_station": "Video Played on Outdoor Station"
+                    "bye": "Hung Up"
                 }
             }
         },
