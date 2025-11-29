@@ -4,7 +4,7 @@ from typing import Final
 DOMAIN: Final = "doorlink"
 
 MANUFACTURER: Final = "doorlink"
-SW_VERSION: Final = "2.0.0"
+SW_VERSION: Final = "3.0.0"
 
 DEVICE_ID: Final = "device_id"
 
