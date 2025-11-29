@@ -60,7 +60,9 @@
                     "elev_down": "Elevator Moving Down",
                     "permit": "Elevator Access Granted",
                     "unlock": "Door Unlocked",
-                    "bye": "Hung Up"
+                    "bye": "Hung Up",
+                    "error": "Error",
+                    "reload": "Reload"
                 }
             }
         },

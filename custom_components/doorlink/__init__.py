@@ -1,7 +1,7 @@
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.http import HomeAssistantView
-from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.dispatcher import async_dispatcher_send, async_dispatcher_connect
 from aiohttp.web import Request, Response, json_response
 from asyncio import create_task
 import json
@@ -111,6 +111,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             hass.bus.fire('doorlink.execute', {'status': 'error', 'message': str(e)})
     hass.services.async_register(DOMAIN, 'execute', execute)
 
+    # Reload Entity
+    async def handle_reload():
+        await hass.config_entries.async_reload(entry.entry_id)
+
+    entry.async_on_unload(
+        async_dispatcher_connect(
+            hass,
+            f"{DOMAIN}_{entry.entry_id}_RELOAD",
+            handle_reload
+        )
+    )
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
@@ -171,21 +183,22 @@ class DoorlinkView(HomeAssistantView):
             return json_response({"error": str(e)}, status=400)
 
     async def handle_post(self, payloads: dict):
-        state_attributes = {
-            "event": "ring",
-            "from": payloads.get("from"),
-            "to": payloads.get("to"),
-            "tag": payloads.get("tag"),
-            "call_id": payloads.get("call_id"),
-            "time": datetime.now().isoformat(),
-        }
+        state_attributes = {k: v for k, v in payloads.items() if v is not None}
+        state_attributes['event'] = payloads.get('event', 'ring')
+        state_attributes['time'] = datetime.now().isoformat()
         async_dispatcher_send(
             self._hass,
             f"{DOMAIN}_{self._hass.data[DOMAIN][DEVICE_ID]}_{SENSOR_LAST_EVENT}",
             state_attributes,
         )
-        async_dispatcher_send(
-            self._hass,
-            f"{DOMAIN}_{self._hass.data[DOMAIN][DEVICE_ID]}_{SENSOR_RING_STATUS}",
-            True,
-        )
+        if state_attributes['event'] == 'ring':
+            async_dispatcher_send(
+                self._hass,
+                f"{DOMAIN}_{self._hass.data[DOMAIN][DEVICE_ID]}_{SENSOR_RING_STATUS}",
+                True,
+            )
+        elif state_attributes['event'] == 'reload':
+            async_dispatcher_send(
+                self._hass,
+                f"{DOMAIN}_{self._entry_id}_RELOAD"
+            )
