@@ -1,4 +1,3 @@
-"""Button platform for PetKit integration."""
 from __future__ import annotations
 from typing import Any
 
@@ -10,7 +9,6 @@ from .const import (
     SW_VERSION, 
 
     STATIONS, 
-    STATION_SELECTED, 
     DEVICE_ID
 )
 
@@ -18,20 +16,43 @@ import logging
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    sensors = [
-        DnakeButton(hass=hass, client=hass.data[DOMAIN][entry.entry_id], device_id = hass.data[DOMAIN][DEVICE_ID], translation_key = 'unlock'),
-        DnakeButton(hass=hass, client=hass.data[DOMAIN][entry.entry_id], device_id = hass.data[DOMAIN][DEVICE_ID], translation_key = 'elev_permit'),
-        DnakeButton(hass=hass, client=hass.data[DOMAIN][entry.entry_id], device_id = hass.data[DOMAIN][DEVICE_ID], translation_key = 'elev_up'),
-        DnakeButton(hass=hass, client=hass.data[DOMAIN][entry.entry_id], device_id = hass.data[DOMAIN][DEVICE_ID], translation_key = 'elev_down'),
+    entities = [
+        AccessControl(hass=hass, client=hass.data[DOMAIN][entry.entry_id], device_id = hass.data[DOMAIN][DEVICE_ID], translation_key = 'unlock'),
+        AccessControl(hass=hass, client=hass.data[DOMAIN][entry.entry_id], device_id = hass.data[DOMAIN][DEVICE_ID], translation_key = 'bye'),
+        AccessControl(hass=hass, client=hass.data[DOMAIN][entry.entry_id], device_id = hass.data[DOMAIN][DEVICE_ID], translation_key = 'elev_permit'),
+        AccessControl(hass=hass, client=hass.data[DOMAIN][entry.entry_id], device_id = hass.data[DOMAIN][DEVICE_ID], translation_key = 'elev_up'),
+        AccessControl(hass=hass, client=hass.data[DOMAIN][entry.entry_id], device_id = hass.data[DOMAIN][DEVICE_ID], translation_key = 'elev_down'),
     ]
-    async_add_entities(sensors)
+    
+    for key, val in hass.data[DOMAIN][STATIONS].contacts.items():
+        entities.append(
+                AccessControl(
+                    hass=hass, 
+                    client=hass.data[DOMAIN][entry.entry_id], 
+                    device_id = f'{hass.data[DOMAIN][DEVICE_ID]}_{val.ip}', 
+                    translation_key = 'unlock', 
+                    sip_info=val.info
+                )
+        )
+        entities.append(
+                AccessControl(
+                    hass=hass, 
+                    client=hass.data[DOMAIN][entry.entry_id], 
+                    device_id = f'{hass.data[DOMAIN][DEVICE_ID]}_{val.ip}', 
+                    translation_key = 'bye', 
+                    sip_info=val.info
+                )
+        )
 
-class DnakeButton(ButtonEntity):
-    def __init__(self, hass, client, device_id, translation_key):
+    async_add_entities(entities)
+
+class AccessControl(ButtonEntity):
+    def __init__(self, hass, client, device_id, translation_key, sip_info=None):
         self._hass = hass
         self._client = client
         self._device_id = device_id
         self._translation_key = translation_key
+        self._sip_info = sip_info
 
     @property
     def device_info(self) -> dict[str, Any]:
@@ -60,15 +81,15 @@ class DnakeButton(ButtonEntity):
         
     async def async_press(self) -> None:
         try:
-            id = self._hass.data[DOMAIN][STATION_SELECTED]
-            sip_to = self._hass.data[DOMAIN][STATIONS].contacts[id].info
             if self._translation_key == 'unlock':
-                await self._client.unlock(sip_to)
+                await self._client.unlock(self._sip_info)
+            elif self._translation_key == 'bye':
+                await self._client.bye(self._sip_info)
             elif self._translation_key == 'elev_permit':
-                await self._client.permit(sip_to)
+                await self._client.permit(self._sip_info)
             elif self._translation_key == 'elev_up':
-                await self._client.appoint(sip_to, 1)
+                await self._client.appoint(self._sip_info, 1)
             elif self._translation_key == 'elev_down':
-                await self._client.appoint(sip_to, 2)
+                await self._client.appoint(self._sip_info, 2)
         except Exception as e:
             raise Exception(e)

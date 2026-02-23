@@ -36,6 +36,9 @@
             "unlock": {
                 "name": "打开门禁"
             },
+            "bye": {
+                "name": "挂断会话"
+            },
             "elev_permit": {
                 "name": "开放楼层"
             },
@@ -46,13 +49,8 @@
                 "name": "电梯下行"
             }
         },
-        "select": {
-            "contact_id": {
-                "name": "选择门禁设备"
-            }
-        },
         "sensor": {
-            "last_event": {
+            "latest_event": {
                 "name": "最新事件",
                 "state": {
                     "ring": "有人呼叫室内机",
@@ -69,6 +67,11 @@
         "binary_sensor": {
             "ring_status": {
                 "name": "呼叫状态"
+            }
+        },
+        "camera": {
+            "stream": {
+                "name": "视频流"
             }
         }
     },

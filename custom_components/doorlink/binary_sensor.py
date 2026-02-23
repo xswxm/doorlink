@@ -9,18 +9,29 @@ from .const import (
 
     DEVICE_ID,
     SENSOR_RING_STATUS, 
+    STATIONS, 
 )
 
 import logging
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    sensors = [
-        DnakeRingSensor(hass=hass, device_id=hass.data[DOMAIN][DEVICE_ID], sensor_id=SENSOR_RING_STATUS, translation_key='ring_status'),
+    entities = [
+        RingingSensor(hass=hass, device_id=hass.data[DOMAIN][DEVICE_ID], sensor_id=SENSOR_RING_STATUS, translation_key='ring_status'),
     ]
-    async_add_entities(sensors)
+    for key, val in hass.data[DOMAIN][STATIONS].contacts.items():
+        entities.append(
+            RingingSensor(
+                hass=hass, 
+                device_id=f'{hass.data[DOMAIN][DEVICE_ID]}_{val.ip}', 
+                sensor_id=SENSOR_RING_STATUS, 
+                translation_key='ring_status'
+            )
+        )
 
-class DnakeRingSensor(BinarySensorEntity):
+    async_add_entities(entities)
+
+class RingingSensor(BinarySensorEntity):
     def __init__(self, hass: HomeAssistant, device_id: str, sensor_id: str, translation_key: str):
         self.hass = hass
         self._device_id = device_id
@@ -34,7 +45,6 @@ class DnakeRingSensor(BinarySensorEntity):
 
     @property
     def device_info(self) -> dict:
-        """Return information to link this entity with the correct device."""
         return {
             "identifiers": {(DOMAIN, self._device_id)},
             "name": self._device_id,
@@ -44,7 +54,6 @@ class DnakeRingSensor(BinarySensorEntity):
 
     @property
     def has_entity_name(self) -> bool:
-        """Indicate that entity has name defined."""
         return True
 
     @property
@@ -53,7 +62,6 @@ class DnakeRingSensor(BinarySensorEntity):
 
     @property
     def icon(self) -> str:
-        """Set icon."""
         return "mdi:bell-ring"
 
     @property
@@ -62,11 +70,9 @@ class DnakeRingSensor(BinarySensorEntity):
 
     @property
     def is_on(self) -> bool:
-        """Return true if the sensor is on (triggered)."""
         return self._triggered
 
     async def async_added_to_hass(self):
-        """Register signal handler when the entity is added to Home Assistant."""
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass, self.unique_id, self._handle_state_update
@@ -74,12 +80,10 @@ class DnakeRingSensor(BinarySensorEntity):
         )
 
     async def _handle_state_update(self, state: bool):
-        """Handle state update from dispatcher."""
         if state:
             await self.trigger()
 
     async def trigger(self):
-        """Trigger the sensor for 100ms."""
         self._triggered = True
         self.schedule_update_ha_state()
         async_call_later(
@@ -89,10 +93,8 @@ class DnakeRingSensor(BinarySensorEntity):
         )
 
     async def _reset_state_callback(self, _now):
-        """Async wrapper for reset."""
         self._reset_state()
 
     def _reset_state(self):
-        """Reset the triggered state and update HA."""
         self._triggered = False
         self.schedule_update_ha_state()

@@ -1,9 +1,5 @@
 from homeassistant.core import HomeAssistant
-from homeassistant.components.sensor import (
-    SensorEntity,
-    # SensorDeviceClass,
-    # SensorStateClass,
-)
+from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -14,7 +10,7 @@ from .const import (
     SW_VERSION, 
 
     DEVICE_ID,
-    SENSOR_LAST_EVENT, 
+    SENSOR_LATEST_EVENT, 
 )
 
 import logging
@@ -22,11 +18,11 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     sensors = [
-        DnakeSensor(hass=hass, device_id=hass.data[DOMAIN][DEVICE_ID], sensor_id=SENSOR_LAST_EVENT, translation_key='last_event'),
+        LatestEvent(hass=hass, device_id=hass.data[DOMAIN][DEVICE_ID], sensor_id=SENSOR_LATEST_EVENT, translation_key='latest_event'),
     ]
     async_add_entities(sensors)
 
-class DnakeSensor(SensorEntity, RestoreEntity):
+class LatestEvent(SensorEntity, RestoreEntity):
     def __init__(self, hass: HomeAssistant, device_id: str, sensor_id: str, translation_key: str):
         self.hass = hass
         self._device_id = device_id
@@ -42,7 +38,6 @@ class DnakeSensor(SensorEntity, RestoreEntity):
 
     @property
     def device_info(self):
-        """Return information to link this entity with the correct device."""
         return {
             "identifiers": {(DOMAIN, self._device_id)},
             "name": self._device_id,
@@ -52,8 +47,6 @@ class DnakeSensor(SensorEntity, RestoreEntity):
 
     @property
     def has_entity_name(self) -> bool:
-        """Indicate that entity has name defined."""
-
         return True
 
     @property
@@ -62,13 +55,10 @@ class DnakeSensor(SensorEntity, RestoreEntity):
 
     @property
     def icon(self) -> str:
-        """Set icon."""
-
         return 'mdi:calendar'
 
     @property
     def entity_category(self) -> EntityCategory:
-        """Set category to diagnostic."""
         return EntityCategory.DIAGNOSTIC
 
     @property
@@ -80,8 +70,6 @@ class DnakeSensor(SensorEntity, RestoreEntity):
         return self._extra_state_attributes
 
     async def async_added_to_hass(self):
-        """Restore state when the entity is added to Home Assistant."""
-        # Restore state
         old_state = await self.async_get_last_state()
         if old_state:
             self._state = old_state.state
@@ -94,7 +82,6 @@ class DnakeSensor(SensorEntity, RestoreEntity):
         )
 
     def update_state(self, state_attributes):
-        """Update the sensor state and attributes."""
         self._state = state_attributes['event']
         self._extra_state_attributes = state_attributes
         self.hass.loop.call_soon_threadsafe(self.async_write_ha_state)

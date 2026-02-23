@@ -36,6 +36,9 @@
             "unlock": {
                 "name": "Unlock Door"
             },
+            "bye": {
+                "name": "Bye"
+            },
             "elev_permit": {
                 "name": "Grant Elevator Access"
             },
@@ -46,14 +49,9 @@
                 "name": "Elevator Down"
             }
         },
-        "select": {
-            "contact_id": {
-                "name": "Select Outdoor Station"
-            }
-        },
         "sensor": {
-            "last_event": {
-                "name": "Last Event",
+            "latest_event": {
+                "name": "Latest Event",
                 "state": {
                     "ring": "Someone Called the Indoor Monitor",
                     "elev_up": "Elevator Moving Up",
@@ -69,6 +67,11 @@
         "binary_sensor": {
             "ring_status": {
                 "name": "Ring Status"
+            }
+        },
+        "camera": {
+            "stream": {
+                "name": "Stream"
             }
         }
     },

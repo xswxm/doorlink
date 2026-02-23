@@ -17,9 +17,7 @@ from .const import (
     DEVICE_ID, 
 
     STATIONS, 
-    STATION_LIST,
-
-    SENSOR_LAST_EVENT, 
+    SENSOR_LATEST_EVENT, 
     SENSOR_RING_STATUS, 
 )
 
@@ -36,9 +34,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     await client.initialize()
 
     hass.data[DOMAIN][entry.entry_id] = client
-    hass.data[DOMAIN][DEVICE_ID] = f"{DOMAIN}_{client.server_address.split(':')[1][2:].replace('.', '_')}"
+    hass.data[DOMAIN][DEVICE_ID] = f"{DOMAIN}_{client.server.hostname.replace('.', '_')}"
     hass.data[DOMAIN][STATIONS] = client.stations
-    hass.data[DOMAIN][STATION_LIST] = list(hass.data[DOMAIN][STATIONS].contacts.keys())
 
     # Initialize HTTP Viewer
     hass.http.register_view(DoorlinkView(hass, entry.entry_id))
@@ -131,7 +128,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 class DoorlinkView(HomeAssistantView):
-    """Handle /api/doorlink request"""
     requires_auth = True
 
     def __init__(self, hass: HomeAssistant, entry_id: str):
@@ -188,7 +184,7 @@ class DoorlinkView(HomeAssistantView):
         state_attributes['time'] = datetime.now().isoformat()
         async_dispatcher_send(
             self._hass,
-            f"{DOMAIN}_{self._hass.data[DOMAIN][DEVICE_ID]}_{SENSOR_LAST_EVENT}",
+            f"{DOMAIN}_{self._hass.data[DOMAIN][DEVICE_ID]}_{SENSOR_LATEST_EVENT}",
             state_attributes,
         )
         if state_attributes['event'] == 'ring':
