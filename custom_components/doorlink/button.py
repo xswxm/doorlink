@@ -8,8 +8,13 @@ from .const import (
     MANUFACTURER, 
     SW_VERSION, 
 
-    STATIONS, 
-    DEVICE_ID
+    MONITOR, 
+    STATIONS,
+    UNLOCK,
+    BYE,
+    ELEV_PERMIT,
+    ELEV_UP,
+    ELEV_DOWN
 )
 
 import logging
@@ -17,11 +22,11 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     entities = [
-        AccessControl(hass=hass, client=hass.data[DOMAIN][entry.entry_id], device_id = hass.data[DOMAIN][DEVICE_ID], translation_key = 'unlock'),
-        AccessControl(hass=hass, client=hass.data[DOMAIN][entry.entry_id], device_id = hass.data[DOMAIN][DEVICE_ID], translation_key = 'bye'),
-        AccessControl(hass=hass, client=hass.data[DOMAIN][entry.entry_id], device_id = hass.data[DOMAIN][DEVICE_ID], translation_key = 'elev_permit'),
-        AccessControl(hass=hass, client=hass.data[DOMAIN][entry.entry_id], device_id = hass.data[DOMAIN][DEVICE_ID], translation_key = 'elev_up'),
-        AccessControl(hass=hass, client=hass.data[DOMAIN][entry.entry_id], device_id = hass.data[DOMAIN][DEVICE_ID], translation_key = 'elev_down'),
+        AccessControl(hass=hass, client=hass.data[DOMAIN][entry.entry_id], device_id = hass.data[DOMAIN][MONITOR].device_id, translation_key = UNLOCK),
+        AccessControl(hass=hass, client=hass.data[DOMAIN][entry.entry_id], device_id = hass.data[DOMAIN][MONITOR].device_id, translation_key = BYE),
+        AccessControl(hass=hass, client=hass.data[DOMAIN][entry.entry_id], device_id = hass.data[DOMAIN][MONITOR].device_id, translation_key = ELEV_PERMIT),
+        AccessControl(hass=hass, client=hass.data[DOMAIN][entry.entry_id], device_id = hass.data[DOMAIN][MONITOR].device_id, translation_key = ELEV_UP),
+        AccessControl(hass=hass, client=hass.data[DOMAIN][entry.entry_id], device_id = hass.data[DOMAIN][MONITOR].device_id, translation_key = ELEV_DOWN),
     ]
     
     for key, val in hass.data[DOMAIN][STATIONS].contacts.items():
@@ -29,8 +34,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 AccessControl(
                     hass=hass, 
                     client=hass.data[DOMAIN][entry.entry_id], 
-                    device_id = f'{hass.data[DOMAIN][DEVICE_ID]}_{val.ip}', 
-                    translation_key = 'unlock', 
+                    device_id = val.device_id,
+                    translation_key = UNLOCK, 
                     sip_info=val.info
                 )
         )
@@ -38,8 +43,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 AccessControl(
                     hass=hass, 
                     client=hass.data[DOMAIN][entry.entry_id], 
-                    device_id = f'{hass.data[DOMAIN][DEVICE_ID]}_{val.ip}', 
-                    translation_key = 'bye', 
+                    device_id = val.device_id, 
+                    translation_key = BYE, 
                     sip_info=val.info
                 )
         )
@@ -81,15 +86,15 @@ class AccessControl(ButtonEntity):
         
     async def async_press(self) -> None:
         try:
-            if self._translation_key == 'unlock':
+            if self._translation_key == UNLOCK:
                 await self._client.unlock(self._sip_info)
-            elif self._translation_key == 'bye':
+            elif self._translation_key == BYE:
                 await self._client.bye(self._sip_info)
-            elif self._translation_key == 'elev_permit':
+            elif self._translation_key == ELEV_PERMIT:
                 await self._client.permit(self._sip_info)
-            elif self._translation_key == 'elev_up':
+            elif self._translation_key == ELEV_UP:
                 await self._client.appoint(self._sip_info, 1)
-            elif self._translation_key == 'elev_down':
+            elif self._translation_key == ELEV_DOWN:
                 await self._client.appoint(self._sip_info, 2)
         except Exception as e:
             raise Exception(e)

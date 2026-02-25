@@ -10,7 +10,7 @@ from .const import (
     MANUFACTURER, 
     SW_VERSION, 
 
-    DEVICE_ID, 
+    MONITOR, 
     STATIONS, 
 )
 
@@ -19,40 +19,40 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     entities = []
+    if hass.data[DOMAIN][MONITOR].mjpeg_url != None:
+        entities.append(
+            MjpegStream(
+                entry=entry,
+                device_id=hass.data[DOMAIN][MONITOR].device_id,
+                mjpeg_url=hass.data[DOMAIN][MONITOR].mjpeg_url,
+                snapshot_url=hass.data[DOMAIN][MONITOR].snapshot_url,
+                translation_key = 'stream'
+            )
+        )
+    elif hass.data[DOMAIN][MONITOR].rtsp_url != None:
+        entities.append(
+            RTSPStream(
+                hass=hass,
+                device_id=hass.data[DOMAIN][MONITOR].device_id, 
+                stream_source=hass.data[DOMAIN][MONITOR].rtsp_url, 
+                username=None, 
+                password=None,
+                translation_key = 'stream'
+            )
+        )
+
     for key, val in hass.data[DOMAIN][STATIONS].contacts.items():
         if val.rtsp_url:
             entities.append(
                 RTSPStream(
                     hass=hass, 
-                    device_id=f'{hass.data[DOMAIN][DEVICE_ID]}_{val.ip}', 
+                    device_id=val.device_id, 
                     stream_source=val.rtsp_url, 
                     username=val.rtsp_username, 
                     password=val.rtsp_password,
                     translation_key = 'stream'
                 )
             )
-
-    if hass.data[DOMAIN][entry.entry_id].mjpeg_url != None:
-        entities.append(
-            MjpegStream(
-                entry=entry,
-                device_id=hass.data[DOMAIN][DEVICE_ID],
-                mjpeg_url=hass.data[DOMAIN][entry.entry_id].mjpeg_url,
-                snapshot_url=hass.data[DOMAIN][entry.entry_id].snapshot_url,
-                translation_key = 'stream'
-            )
-        )
-    elif hass.data[DOMAIN][entry.entry_id].rtsp_url != None:
-        entities.append(
-            RTSPStream(
-                hass=hass,
-                device_id=f'{hass.data[DOMAIN][DEVICE_ID]}', 
-                stream_source=hass.data[DOMAIN][entry.entry_id].rtsp_url, 
-                username=None, 
-                password=None,
-                translation_key = 'stream'
-            )
-        )
 
     async_add_entities(entities)
 

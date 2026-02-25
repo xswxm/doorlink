@@ -7,8 +7,8 @@ from .const import (
     MANUFACTURER, 
     SW_VERSION, 
 
-    DEVICE_ID,
-    SENSOR_RING_STATUS, 
+    RING_STATUS, 
+    MONITOR,
     STATIONS, 
 )
 
@@ -17,25 +17,28 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     entities = [
-        RingingSensor(hass=hass, device_id=hass.data[DOMAIN][DEVICE_ID], sensor_id=SENSOR_RING_STATUS, translation_key='ring_status'),
+        RingingSensor(
+            hass=hass, 
+            device_id=hass.data[DOMAIN][MONITOR].device_id, 
+            translation_key=RING_STATUS
+            ),
     ]
     for key, val in hass.data[DOMAIN][STATIONS].contacts.items():
         entities.append(
             RingingSensor(
                 hass=hass, 
-                device_id=f'{hass.data[DOMAIN][DEVICE_ID]}_{val.ip}', 
-                sensor_id=SENSOR_RING_STATUS, 
-                translation_key='ring_status'
+                device_id=val.device_id, 
+                translation_key=RING_STATUS
             )
         )
 
     async_add_entities(entities)
 
 class RingingSensor(BinarySensorEntity):
-    def __init__(self, hass: HomeAssistant, device_id: str, sensor_id: str, translation_key: str):
+    def __init__(self, hass: HomeAssistant, device_id: str, translation_key: str):
         self.hass = hass
         self._device_id = device_id
-        self._sensor_id = sensor_id
+        self._sensor_id = translation_key
         self._translation_key = translation_key
         self._triggered = False
 

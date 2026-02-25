@@ -8,9 +8,8 @@ from urllib.parse import urlparse
 
 from .const import (
     DOMAIN, 
-    DEVICE_ID, 
-    SENSOR_LATEST_EVENT, 
-    SENSOR_RING_STATUS, 
+    MONITOR, 
+    LATEST_EVENT, 
 
     CONF_SIP_INFO,
     CONF_STATIONS,
@@ -23,6 +22,12 @@ from .const import (
     PORT_STREAM, 
     STREAM_TYPE_MJPEG,
     STREAM_TYPE_RTSP, 
+    UNLOCK,
+    BYE,
+    ELEV_PERMIT,
+    ELEV_APPOINT,
+    ELEV_UP,
+    ELEV_DOWN
 )
  
 import logging
@@ -36,10 +41,12 @@ class SIPContact:
             name_psk, ip_port = info.split('@')
             self.ip, self.port = ip_port.split(':')
             self.name = name_psk.split(':')[0] if ':' in name_psk else name_psk
+            self.device_id = self.ip.replace('.', '_')
         else:
             self.ip = None
             self.port = None
             self.name = None
+            self.device_id = ""
         if rtsp_url:
             rtsp_prefix, rstp_suffix = rtsp_url.split('@')
             self.rtsp_username, self.rtsp_password = rtsp_prefix[7:].split(':')
@@ -48,13 +55,15 @@ class SIPContact:
             self.rtsp_username = None
             self.rtsp_password = None
             self.rtsp_url = None
+        self.mjpeg_url = None
+        self.snapshot_url = None
 
 class Stations:
     def __init__(self, stations = []) -> None:
         self.contacts = {}
         for station in stations:
             contact = SIPContact(station[CONF_SIP_INFO], station[CONF_RTSP_URL])
-            self.contacts[f'{contact.name}@{contact.ip}'] = contact
+            self.contacts[contact.ip] = contact
 
 class Client:
     def __init__(self, hass: HomeAssistant, config):
@@ -65,9 +74,6 @@ class Client:
         self.stations = None
         self.elev = None
         self.family = None
-        self.rtsp_url = None
-        self.mjpeg_url = None
-        self.snapshot_url = None
 
     async def initialize(self):
         response_str = await self.get_request('/config')
@@ -79,10 +85,10 @@ class Client:
             self.elev = data.get(CONF_ELEV_ID, 0)
             stream_type = data.get(CONF_STREAM, None)
             if stream_type == STREAM_TYPE_MJPEG:
-                self.mjpeg_url = f'{self.server.scheme}://{self.server.hostname}:{PORT_STREAM}'
-                self.snapshot_url = f'{self.server.scheme}://{self.server.hostname}:{PORT_STREAM}/snapshot'
+                self.monitor.mjpeg_url = f'{self.server.scheme}://{self.server.hostname}:{PORT_STREAM}'
+                self.monitor.snapshot_url = f'{self.server.scheme}://{self.server.hostname}:{PORT_STREAM}/snapshot'
             elif stream_type == STREAM_TYPE_RTSP:
-                self.rtsp_url = f'rtsp://{self.server.hostname}:{PORT_STREAM}'
+                self.monitor.rtsp_url = f'rtsp://{self.server.hostname}:{PORT_STREAM}'
         except Exception as e:
             _LOGGER.info(f"Failed to initialize: {str(e)}")
 
@@ -117,23 +123,9 @@ class Client:
         self.hass.loop.call_soon_threadsafe(
             async_dispatcher_send,
             self.hass,
-            f"{DOMAIN}_{self.hass.data[DOMAIN][DEVICE_ID]}_{SENSOR_LATEST_EVENT}",
+            f"{DOMAIN}_{self.hass.data[DOMAIN][MONITOR].device_id}_{LATEST_EVENT}",
             state_attributes
         )
-        if state_attributes['event'] == 'ring':
-            self.hass.loop.call_soon_threadsafe(
-                async_dispatcher_send,
-                self.hass,
-                f"{DOMAIN}_{self.hass.data[DOMAIN][DEVICE_ID]}_{SENSOR_RING_STATUS}",
-                True
-            )
-            dst_info = SIPContact(state_attributes.get('from'))
-            self.hass.loop.call_soon_threadsafe(
-                async_dispatcher_send,
-                self.hass,
-                f"{DOMAIN}_{self.hass.data[DOMAIN][DEVICE_ID]}_{dst_info.ip}_{SENSOR_RING_STATUS}",
-                True
-            )
 
     async def execute(self, data):
         if isinstance(data, str):
@@ -147,13 +139,13 @@ class Client:
         tag = data.get('tag')
         call_id = data.get('call_id')
 
-        if data['event'] == 'appoint':
+        if data['event'] == ELEV_APPOINT:
             await self.appoint_advanced(sip_from=sip_from, sip_to=sip_to, elev=elev, direct=direct, family=family)
-        elif data['event'] == 'unlock':
+        elif data['event'] == UNLOCK:
             await self.unlock_advanced(sip_from=sip_from, sip_to=sip_to, family=family)
-        elif data['event'] == 'permit':
+        elif data['event'] == ELEV_PERMIT:
             await self.permit_advanced(sip_from=sip_from, sip_to=sip_to, elev=elev, family=family)
-        elif data['event'] == 'bye':
+        elif data['event'] == BYE:
             await self.bye_advanced(sip_from=sip_from, sip_to=sip_to, tag=tag, call_id=call_id)
 
     async def appoint_advanced(self, sip_from, sip_to, elev, direct, family):
@@ -171,8 +163,8 @@ class Client:
         # appoint
         data = {
             "from": sip_from if sip_from else self.monitor.info,
-            "to": sip_to,
-            "event": 'appoint',
+            "to": sip_to if sip_to else '',
+            "event": ELEV_APPOINT,
             "family": family,
             "elev": elev,
             "direct": direct,
@@ -181,7 +173,7 @@ class Client:
 
         # update sensor
         state_attributes = {
-            'event': 'elev_up' if direct == 1 else 'elev_down',
+            'event': ELEV_UP if direct == 1 else ELEV_DOWN,
             'from': sip_from,
             'to': sip_to,
             'time': datetime.now().isoformat()
@@ -200,8 +192,8 @@ class Client:
     async def unlock_advanced(self, sip_from, sip_to, family = 1):
         data = {
             "from": sip_from if sip_from else self.monitor.info,
-            "to": sip_to,
-            "event": 'unlock',
+            "to": sip_to if sip_to else '',
+            "event": UNLOCK,
             "family": family,
             "elev": 0,
             "direct": '1',
@@ -210,7 +202,7 @@ class Client:
 
         # update sensor
         state_attributes = {
-            'event': 'unlock',
+            'event': UNLOCK,
             'from': sip_from,
             'to': sip_to,
             'time': datetime.now().isoformat()
@@ -227,8 +219,8 @@ class Client:
     async def permit_advanced(self, sip_from, sip_to, elev, family = 1):
         data = {
             "from": sip_from if sip_from else self.monitor.info,
-            "to": sip_to,
-            "event": 'permit',
+            "to": sip_to if sip_to else '',
+            "event": ELEV_PERMIT,
             "family": family,
             "elev": elev,
             "direct": '1',
@@ -237,7 +229,7 @@ class Client:
 
         # update sensor
         state_attributes = {
-            'event': 'permit',
+            'event': ELEV_PERMIT,
             'from': sip_from,
             'to': sip_to,
             'time': datetime.now().isoformat()
@@ -254,9 +246,9 @@ class Client:
 
     async def bye_advanced(self, sip_from, sip_to, tag=None, call_id=None):
         data = {
-            "from": sip_from,
+            "from": sip_from if sip_from else '',
             "to": sip_to if sip_to else self.monitor.info,
-            "event": 'bye',
+            "event": BYE,
             "family": 1,
             "elev": 0,
             "direct": '1',
@@ -267,7 +259,7 @@ class Client:
 
         # update sensor
         state_attributes = {
-            'event': 'bye',
+            'event': BYE,
             'from': sip_from,
             'to': sip_to,
             'time': datetime.now().isoformat()

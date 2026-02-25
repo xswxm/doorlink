@@ -9,8 +9,8 @@ from .const import (
     MANUFACTURER, 
     SW_VERSION, 
 
-    DEVICE_ID,
-    SENSOR_LATEST_EVENT, 
+    MONITOR,
+    LATEST_EVENT, 
 )
 
 import logging
@@ -18,15 +18,18 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     sensors = [
-        LatestEvent(hass=hass, device_id=hass.data[DOMAIN][DEVICE_ID], sensor_id=SENSOR_LATEST_EVENT, translation_key='latest_event'),
+        LatestEvent(hass=hass, 
+                    device_id=hass.data[DOMAIN][MONITOR].device_id, 
+                    translation_key=LATEST_EVENT
+                    ),
     ]
     async_add_entities(sensors)
 
 class LatestEvent(SensorEntity, RestoreEntity):
-    def __init__(self, hass: HomeAssistant, device_id: str, sensor_id: str, translation_key: str):
+    def __init__(self, hass: HomeAssistant, device_id: str, translation_key: str):
         self.hass = hass
         self._device_id = device_id
-        self._sensor_id = sensor_id
+        self._sensor_id = translation_key
         self._state = None
         self._translation_key = translation_key
         self._state = STATE_UNKNOWN
