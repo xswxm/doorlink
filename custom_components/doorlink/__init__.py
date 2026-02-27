@@ -19,11 +19,6 @@ from .const import (
     STATIONS, 
     LATEST_EVENT, 
     RING_STATUS, 
-    ELEV_APPOINT,
-    UNLOCK,
-    ELEV_PERMIT,
-    BYE,
-    EXECUTE
 )
 
 import logging
@@ -57,7 +52,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         except Exception as e:
             _LOGGER.debug(f'appoint request failed: {e}.')
             hass.bus.fire('doorlink.appoint', {'status': 'error', 'message': str(e)})
-    hass.services.async_register(DOMAIN, ELEV_APPOINT, appoint)
+    hass.services.async_register(DOMAIN, 'appoint', appoint)
 
     async def unlock(call):
         """Handle the service call."""
@@ -70,7 +65,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         except Exception as e:
             _LOGGER.debug(f'unlock request failed: {e}.')
             hass.bus.fire('doorlink.unlock', {'status': 'error', 'message': str(e)})
-    hass.services.async_register(DOMAIN, UNLOCK, unlock)
+    hass.services.async_register(DOMAIN, 'unlock', unlock)
 
     async def permit(call):
         """Handle the service call."""
@@ -83,7 +78,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         except Exception as e:
             _LOGGER.debug(f'permit request failed: {e}.')
             hass.bus.fire('doorlink.permit', {'status': 'error', 'message': str(e)})
-    hass.services.async_register(DOMAIN, ELEV_PERMIT, permit)
+    hass.services.async_register(DOMAIN, 'permit', permit)
 
     async def bye(call):
         """Handle the service call."""
@@ -98,7 +93,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         except Exception as e:
             _LOGGER.debug(f'bye request failed: {e}.')
             hass.bus.fire('doorlink.bye', {'status': 'error', 'message': str(e)})
-    hass.services.async_register(DOMAIN, BYE, bye)
+    hass.services.async_register(DOMAIN, 'bye', bye)
 
     async def execute(call):
         """Handle the service call."""
@@ -111,7 +106,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         except Exception as e:
             _LOGGER.debug(f'execute request failed: {e}.')
             hass.bus.fire('doorlink.execute', {'status': 'error', 'message': str(e)})
-    hass.services.async_register(DOMAIN, EXECUTE, execute)
+    hass.services.async_register(DOMAIN, 'execute', execute)
 
     # Reload Entity
     async def handle_reload():

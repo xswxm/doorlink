@@ -7,9 +7,9 @@ from .const import (
     MANUFACTURER, 
     SW_VERSION, 
 
-    RING_STATUS, 
     MONITOR,
     STATIONS, 
+    RING_STATUS, 
 )
 
 import logging

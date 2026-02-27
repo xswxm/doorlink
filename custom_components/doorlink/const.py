@@ -4,10 +4,9 @@ from typing import Final
 DOMAIN: Final = "doorlink"
 
 MANUFACTURER: Final = "doorlink"
-SW_VERSION: Final = "4.0.1"
+SW_VERSION: Final = "4.0.2"
 
 DEVICE_ID: Final = "device_id"
-
 
 # Configuration
 CONF_SIP_INFO = "sip"
@@ -27,15 +26,9 @@ STREAM_TYPE_RTSP = "rtsp"
 MONITOR: Final = 'monitor'
 STATION: Final = 'station'
 STATIONS: Final = 'stations'
+
 LATEST_EVENT: Final = 'latest_event'
 RING_STATUS: Final = 'ring_status'
-UNLOCK: Final = 'unlock'
-BYE: Final = 'bye'
-ELEV_PERMIT: Final = 'elev_permit'
-ELEV_APPOINT: Final = 'elev_appoint'
-ELEV_UP: Final = 'elev_up'
-ELEV_DOWN: Final = 'elev_down'
-EXECUTE: Final = 'execute'
 
 PLATFORMS: Final = [
     Platform.BUTTON,

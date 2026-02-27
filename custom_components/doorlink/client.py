@@ -22,12 +22,6 @@ from .const import (
     PORT_STREAM, 
     STREAM_TYPE_MJPEG,
     STREAM_TYPE_RTSP, 
-    UNLOCK,
-    BYE,
-    ELEV_PERMIT,
-    ELEV_APPOINT,
-    ELEV_UP,
-    ELEV_DOWN
 )
  
 import logging
@@ -139,13 +133,13 @@ class Client:
         tag = data.get('tag')
         call_id = data.get('call_id')
 
-        if data['event'] == ELEV_APPOINT:
+        if data['event'] == 'appoint':
             await self.appoint_advanced(sip_from=sip_from, sip_to=sip_to, elev=elev, direct=direct, family=family)
-        elif data['event'] == UNLOCK:
+        elif data['event'] == 'unlock':
             await self.unlock_advanced(sip_from=sip_from, sip_to=sip_to, family=family)
-        elif data['event'] == ELEV_PERMIT:
+        elif data['event'] == 'permit':
             await self.permit_advanced(sip_from=sip_from, sip_to=sip_to, elev=elev, family=family)
-        elif data['event'] == BYE:
+        elif data['event'] == 'bye':
             await self.bye_advanced(sip_from=sip_from, sip_to=sip_to, tag=tag, call_id=call_id)
 
     async def appoint_advanced(self, sip_from, sip_to, elev, direct, family):
@@ -164,7 +158,7 @@ class Client:
         data = {
             "from": sip_from if sip_from else self.monitor.info,
             "to": sip_to if sip_to else '',
-            "event": ELEV_APPOINT,
+            "event": 'appoint',
             "family": family,
             "elev": elev,
             "direct": direct,
@@ -173,9 +167,10 @@ class Client:
 
         # update sensor
         state_attributes = {
-            'event': ELEV_UP if direct == 1 else ELEV_DOWN,
+            'event': 'appoint',
             'from': sip_from,
             'to': sip_to,
+            'direct': direct, 
             'time': datetime.now().isoformat()
         }
         self.update_latest_event(state_attributes)
@@ -193,7 +188,7 @@ class Client:
         data = {
             "from": sip_from if sip_from else self.monitor.info,
             "to": sip_to if sip_to else '',
-            "event": UNLOCK,
+            "event": 'unlock',
             "family": family,
             "elev": 0,
             "direct": '1',
@@ -202,7 +197,7 @@ class Client:
 
         # update sensor
         state_attributes = {
-            'event': UNLOCK,
+            'event': 'unlock',
             'from': sip_from,
             'to': sip_to,
             'time': datetime.now().isoformat()
@@ -220,7 +215,7 @@ class Client:
         data = {
             "from": sip_from if sip_from else self.monitor.info,
             "to": sip_to if sip_to else '',
-            "event": ELEV_PERMIT,
+            "event": 'permit',
             "family": family,
             "elev": elev,
             "direct": '1',
@@ -229,7 +224,7 @@ class Client:
 
         # update sensor
         state_attributes = {
-            'event': ELEV_PERMIT,
+            'event': 'permit',
             'from': sip_from,
             'to': sip_to,
             'time': datetime.now().isoformat()
@@ -248,7 +243,7 @@ class Client:
         data = {
             "from": sip_from if sip_from else '',
             "to": sip_to if sip_to else self.monitor.info,
-            "event": BYE,
+            "event": 'bye',
             "family": 1,
             "elev": 0,
             "direct": '1',
@@ -259,7 +254,7 @@ class Client:
 
         # update sensor
         state_attributes = {
-            'event': BYE,
+            'event': 'bye',
             'from': sip_from,
             'to': sip_to,
             'time': datetime.now().isoformat()
