@@ -15,6 +15,7 @@ from .const import (
     CONF_STATIONS,
     CONF_ELEV_ID, 
     CONF_STREAM, 
+    CONF_PLAYBACK, 
     CONF_SERVER_ADDREDD,
     CONF_FAMILY, 
     CONF_RTSP_URL,
@@ -51,6 +52,7 @@ class SIPContact:
             self.rtsp_url = None
         self.mjpeg_url = None
         self.snapshot_url = None
+        self.playback_url = None
 
 class Stations:
     def __init__(self, stations = []) -> None:
@@ -83,6 +85,9 @@ class Client:
                 self.monitor.snapshot_url = f'{self.server.scheme}://{self.server.hostname}:{PORT_STREAM}/snapshot'
             elif stream_type == STREAM_TYPE_RTSP:
                 self.monitor.rtsp_url = f'rtsp://{self.server.hostname}:{PORT_STREAM}'
+            playback_path = data.get(CONF_PLAYBACK, None)
+            if playback_path:
+                self.monitor.playback_url = f'{self.server.scheme}://{self.server.hostname}:{PORT_CONFIG}{playback_path}'
         except Exception as e:
             _LOGGER.info(f"Failed to initialize: {str(e)}")
 

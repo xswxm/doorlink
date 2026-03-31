@@ -71,7 +71,10 @@
         },
         "camera": {
             "stream": {
-                "name": "视频流"
+                "name": "直播流"
+            },
+            "playback": {
+                "name": "视频回放"
             }
         }
     },

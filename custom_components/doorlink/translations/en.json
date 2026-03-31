@@ -72,6 +72,9 @@
         "camera": {
             "stream": {
                 "name": "Stream"
+            },
+            "playback": {
+                "name": "Playback"
             }
         }
     },

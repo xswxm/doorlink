@@ -4,7 +4,7 @@ from typing import Final
 DOMAIN: Final = "doorlink"
 
 MANUFACTURER: Final = "doorlink"
-SW_VERSION: Final = "4.0.2"
+SW_VERSION: Final = "4.0.3"
 
 DEVICE_ID: Final = "device_id"
 
@@ -13,6 +13,7 @@ CONF_SIP_INFO = "sip"
 CONF_FAMILY: Final = 'family'
 CONF_ELEV_ID: Final = "elev"
 CONF_STREAM: Final = "stream"
+CONF_PLAYBACK: Final = "playback"
 CONF_RTSP_URL: Final = "rtsp_url"
 CONF_SERVER_ADDREDD: Final = "server_address"
 CONF_STATIONS: Final = 'stations'

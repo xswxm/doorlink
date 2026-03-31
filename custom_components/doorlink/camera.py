@@ -41,6 +41,16 @@ async def async_setup_entry(hass, entry, async_add_entities):
             )
         )
 
+    if hass.data[DOMAIN][MONITOR].playback_url != None:
+        entities.append(
+            PlaybackStream(
+                hass=hass,
+                device_id=hass.data[DOMAIN][MONITOR].device_id, 
+                playback_url=hass.data[DOMAIN][MONITOR].playback_url,
+                translation_key = 'playback'
+            )
+        )
+
     for key, val in hass.data[DOMAIN][STATIONS].contacts.items():
         if val.rtsp_url:
             entities.append(
@@ -111,6 +121,9 @@ class RTSPStream(Camera):
             _LOGGER.error("Error parsing template %s: %s", self._stream_source, err)
             return None
 
+    async def async_camera_image(self, width=None, height=None) -> bytes | None:
+        return None
+
 class MjpegStream(MjpegCamera):
     def __init__(self, entry, device_id,  mjpeg_url,  snapshot_url, translation_key):
         super().__init__(
@@ -142,3 +155,53 @@ class MjpegStream(MjpegCamera):
     @property
     def translation_key(self) -> str:
         return self._translation_key
+
+class PlaybackStream(Camera):
+    def __init__(self, hass, device_id, playback_url, translation_key):
+        super().__init__()
+        self._hass = hass
+        self._device_id = device_id
+        self._attr_current_option = None
+        self._stream_url = playback_url
+        self._attr_frame_interval = 1 / 15
+        self._attr_supported_features = CameraEntityFeature.STREAM
+        self._translation_key = translation_key
+
+    @property
+    def use_stream_for_stills(self) -> bool:
+        return True
+
+    @property
+    def has_entity_name(self) -> bool:
+        return True
+
+    @property
+    def unique_id(self) -> str:
+        return f"{DOMAIN}_{self._device_id}_{self._translation_key}"
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return {
+            "identifiers": {(DOMAIN, self._device_id)},
+            "name": self._device_id,
+            "manufacturer": MANUFACTURER,
+            "sw_version": SW_VERSION
+        }
+
+    @property
+    def translation_key(self) -> str:
+        return self._translation_key
+
+    @property
+    def is_streaming(self) -> bool:
+        return True
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    async def stream_source(self) -> str | None:
+        return f"ffmpeg:{self._stream_url}#fps=12"
+
+    async def async_camera_image(self, width=None, height=None):
+        return b""
