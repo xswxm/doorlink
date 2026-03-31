@@ -109,7 +109,7 @@ class RTSPStream(Camera):
 
     @property
     def is_streaming(self):
-        return True
+        return False
 
     async def stream_source(self) -> str | None:
         try:
@@ -194,9 +194,8 @@ class PlaybackStream(Camera):
 
     @property
     def is_streaming(self) -> bool:
-        return True
+        return False
 
-    @property
     def available(self) -> bool:
         return True
 
