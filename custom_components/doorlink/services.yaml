@@ -2,6 +2,11 @@ unlock:
   name: Unlock
   description: Unlock Access
   fields:
+    server_address:
+      name: Server
+      description: Doorlink address, such as http://192.168.1.100:8080.
+      selector:
+        text: {}
     sip_info:
       name: Contact
       description: Contact, such as 10019901@172.16.0.101:5060.
@@ -13,12 +18,24 @@ appoint:
   name: Appoint
   description: Elev Appoint
   fields:
+    server_address:
+      name: Server
+      description: Doorlink address, such as http://192.168.1.100:8080.
+      selector:
+        text: {}
     sip_info:
       name: Contact
       description: Contact, such as 10019901@172.16.0.101:5060.
       required: true
       selector:
         text: {}
+    floor:
+      name: Floor
+      description: Floor.
+      selector:
+        number:
+          min: -10
+          max: 99
     direct:
       name: Elev Direction
       description: Elev direction.
@@ -32,32 +49,38 @@ permit:
   name: Permit
   description: Elev Permit
   fields:
+    server_address:
+      name: Server
+      description: Doorlink address, such as http://192.168.1.100:8080.
+      selector:
+        text: {}
     sip_info:
       name: Contact
       description: Contact, such as 10019901@172.16.0.101:5060.
       required: true
       selector:
         text: {}
+    floor:
+      name: Floor
+      description: Floor.
+      selector:
+        number:
+          min: -10
+          max: 99
 
 bye:
   name: Bye
   description: Hung up
   fields:
+    server_address:
+      name: Server
+      description: Doorlink address, such as http://192.168.1.100:8080.
+      selector:
+        text: {}
     sip_info:
       name: Contact
       description: Contact, such as 10019901@172.16.0.101:5060.
       required: true
-      selector:
-        text: {}
-    call_id:
-      name: Call ID
-      description: Call ID of current call.
-      required: true
-      selector:
-        text: {}
-    tag:
-      name: Tag
-      description: Tag of current call.
       selector:
         text: {}
 
@@ -65,6 +88,11 @@ execute:
   name: Execute
   description: Execute SIP CMD
   fields:
+    server_address:
+      name: Server
+      description: Doorlink address, such as http://192.168.1.100:8080.
+      selector:
+        text: {}
     json_data:
       name: Json Data
       description: Json data, such as {}.

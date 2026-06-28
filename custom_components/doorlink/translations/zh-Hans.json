@@ -4,13 +4,8 @@
             "user": {
                 "title": "配置 DOORLINK",
                 "data": {
-                    "sip_info": "室内机信息",
-                    "family": "家庭ID",
-                    "elev_id": "电梯ID",
-                    "openwrt_address": "OpenWrt IP地址",
-                    "ring_port": "呼叫监听端口",
-                    "stations": "室外机设备 (JSON格式)",
-                    "live_supprt": "直播流支持"
+                    "server_address": "服务器地址",
+                    "filepath": "回放视频保存路径"
                 }
             }
         }
@@ -20,22 +15,19 @@
             "init": {
                 "title": "配置 DOORLINK",
                 "data": {
-                    "sip_info": "室内机信息",
-                    "family": "家庭ID",
-                    "elev_id": "电梯ID",
-                    "openwrt_address": "OpenWrt IP地址",
-                    "ring_port": "呼叫监听端口",
-                    "stations": "室外机设备 (JSON格式)",
-                    "live_supprt": "直播流支持"
+                    "server_address": "服务器地址",
+                    "filepath": "回放视频保存路径"
                 }
             }
         }
     },
     "entity": {
-        "button": {
+        "lock": {
             "unlock": {
                 "name": "打开门禁"
-            },
+            }
+        },
+        "button": {
             "bye": {
                 "name": "挂断会话"
             },
@@ -83,9 +75,13 @@
             "name": "打开门禁",
             "description": "打开门禁",
             "fields": {
+                "server_address": {
+                    "name": "服务器地址",
+                    "description": "Doorlink 地址, 如 http://192.168.1.100:8080."
+                },
                 "sip_info": {
-                    "name": "室外机信息",
-                    "description": "室外机信息, such as 10019901@172.16.0.101:5060."
+                    "name": "SIP信息",
+                    "description": "SIP信息, such as 10019901@172.16.0.101:5060."
                 }
             }
         },
@@ -93,9 +89,13 @@
             "name": "预约电梯",
             "description": "控制电梯上行或下行",
             "fields": {
+                "server_address": {
+                    "name": "服务器地址",
+                    "description": "Doorlink 地址, 如 http://192.168.1.100:8080."
+                },
                 "sip_info": {
-                    "name": "室外机信息",
-                    "description": "室外机信息, 如 10019901@172.16.0.101:5060."
+                    "name": "SIP信息",
+                    "description": "SIP信息, 如 10019901@172.16.0.101:5060."
                 },
                 "direct": {
                     "name": "运行方向",
@@ -107,9 +107,13 @@
             "name": "开放楼层",
             "description": "开放电梯楼层。",
             "fields": {
+                "server_address": {
+                    "name": "服务器地址",
+                    "description": "Doorlink 地址, 如 http://192.168.1.100:8080."
+                },
                 "sip_info": {
-                    "name": "室外机信息",
-                    "description": "室外机信息, 如 10019901@172.16.0.101:5060."
+                    "name": "SIP信息",
+                    "description": "SIP信息, 如 10019901@172.16.0.101:5060."
                 }
             }
         },
@@ -117,17 +121,13 @@
             "name": "挂断电话",
             "description": "挂断电话",
             "fields": {
+                "server_address": {
+                    "name": "服务器地址",
+                    "description": "Doorlink 地址, 如 http://192.168.1.100:8080."
+                },
                 "sip_info": {
-                    "name": "室外机信息",
-                    "description": "室外机信息, 如 10019901@172.16.0.101:5060."
-                },
-                "call_id": {
-                    "name": "会话ID",
-                    "description": "当前会话的 Call-ID。"
-                },
-                "tag": {
-                    "name": "会话TAG",
-                    "description": "当前会话的 TAG。"
+                    "name": "SIP信息",
+                    "description": "SIP信息, 如 10019901@172.16.0.101:5060."
                 }
             }
         },
@@ -135,6 +135,10 @@
             "name": "执行命令",
             "description": "执行命令，支持更复杂的命令。",
             "fields": {
+                "server_address": {
+                    "name": "服务器地址",
+                    "description": "Doorlink 地址, 如 http://192.168.1.100:8080."
+                },
                 "json_data": {
                     "name": "Json 数据",
                     "description": "Json 数据。"

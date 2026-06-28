@@ -8,8 +8,6 @@ from .const import (
     DOMAIN, 
     MANUFACTURER, 
     SW_VERSION, 
-
-    MONITOR,
     LATEST_EVENT, 
 )
 
@@ -19,7 +17,7 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(hass, entry, async_add_entities):
     sensors = [
         LatestEvent(hass=hass, 
-                    device_id=hass.data[DOMAIN][MONITOR].device_id, 
+                    device_id=hass.data[DOMAIN][entry.entry_id].monitor.device_id, 
                     translation_key=LATEST_EVENT
                     ),
     ]

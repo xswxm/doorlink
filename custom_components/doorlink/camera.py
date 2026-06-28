@@ -10,8 +10,8 @@ from .const import (
     MANUFACTURER, 
     SW_VERSION, 
 
-    MONITOR, 
-    STATIONS, 
+    STREAM_TYPE_MJPEG,
+    STREAM_TYPE_RTSP,
 )
 
 import logging
@@ -19,39 +19,52 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     entities = []
-    if hass.data[DOMAIN][MONITOR].mjpeg_url != None:
+    client = hass.data[DOMAIN][entry.entry_id]
+    monitor = client.monitor
+    if monitor.mjpeg_url != None:
         entities.append(
             MjpegStream(
                 entry=entry,
-                device_id=hass.data[DOMAIN][MONITOR].device_id,
-                mjpeg_url=hass.data[DOMAIN][MONITOR].mjpeg_url,
-                snapshot_url=hass.data[DOMAIN][MONITOR].snapshot_url,
+                device_id=monitor.device_id,
+                mjpeg_url=monitor.mjpeg_url,
+                snapshot_url=monitor.snapshot_url,
                 translation_key = 'stream'
             )
         )
-    elif hass.data[DOMAIN][MONITOR].rtsp_url != None:
+    elif monitor.rtsp_url != None:
         entities.append(
             RTSPStream(
                 hass=hass,
-                device_id=hass.data[DOMAIN][MONITOR].device_id, 
-                stream_source=hass.data[DOMAIN][MONITOR].rtsp_url, 
+                device_id=monitor.device_id, 
+                stream_source=monitor.rtsp_url, 
                 username=None, 
                 password=None,
                 translation_key = 'stream'
             )
         )
 
-    if hass.data[DOMAIN][MONITOR].playback_url != None:
-        entities.append(
-            PlaybackStream(
-                hass=hass,
-                device_id=hass.data[DOMAIN][MONITOR].device_id, 
-                playback_url=hass.data[DOMAIN][MONITOR].playback_url,
-                translation_key = 'playback'
+    if monitor.playback_url != None:
+        if monitor.stream_type == STREAM_TYPE_MJPEG:
+            entities.append(
+                MjpegStream(
+                    entry=entry,
+                    device_id=monitor.device_id,
+                    mjpeg_url=monitor.playback_url,
+                    snapshot_url=monitor.snapshot_url,
+                    translation_key = 'playback'
+                )
             )
-        )
+        elif monitor.stream_type == STREAM_TYPE_RTSP:
+            entities.append(
+                H264Stream(
+                    hass=hass,
+                    device_id=monitor.device_id, 
+                    playback_url=monitor.playback_url,
+                    translation_key = 'playback'
+                )
+            )
 
-    for key, val in hass.data[DOMAIN][STATIONS].contacts.items():
+    for key, val in client.stations.contacts.items():
         if val.rtsp_url:
             entities.append(
                 RTSPStream(
@@ -130,10 +143,12 @@ class MjpegStream(MjpegCamera):
             mjpeg_url=mjpeg_url,
             still_image_url=snapshot_url,
         )
+        _LOGGER.info(self._attr_name)
         self._entry = entry
         self._device_id = device_id
         self._attr_should_poll = False
         self._translation_key = translation_key
+        # self._attr_name = None
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -156,7 +171,7 @@ class MjpegStream(MjpegCamera):
     def translation_key(self) -> str:
         return self._translation_key
 
-class PlaybackStream(Camera):
+class H264Stream(Camera):
     def __init__(self, hass, device_id, playback_url, translation_key):
         super().__init__()
         self._hass = hass
@@ -166,6 +181,8 @@ class PlaybackStream(Camera):
         self._attr_frame_interval = 1 / 15
         self._attr_supported_features = CameraEntityFeature.STREAM
         self._translation_key = translation_key
+        # self._attr_has_entity_name = False
+        # self._attr_name = None
 
     @property
     def use_stream_for_stills(self) -> bool:
@@ -200,7 +217,7 @@ class PlaybackStream(Camera):
         return True
 
     async def stream_source(self) -> str | None:
-        return f"ffmpeg:{self._stream_url}#fps=12"
+        return f"ffmpeg:{self._stream_url}#video=h264#raw"
 
     async def async_camera_image(self, width=None, height=None):
         return b""

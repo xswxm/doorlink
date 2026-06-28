@@ -3,20 +3,20 @@ import json
 import aiohttp
 
 from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from urllib.parse import urlparse
 
 from .const import (
     DOMAIN, 
-    MONITOR, 
     LATEST_EVENT, 
-
     CONF_SIP_INFO,
     CONF_STATIONS,
     CONF_ELEV_ID, 
     CONF_STREAM, 
     CONF_PLAYBACK, 
-    CONF_SERVER_ADDREDD,
+    CONF_SERVER_ADDRESS,
+    CONF_FILEPATH, 
     CONF_FAMILY, 
     CONF_RTSP_URL,
     PORT_CONFIG, 
@@ -53,6 +53,7 @@ class SIPContact:
         self.mjpeg_url = None
         self.snapshot_url = None
         self.playback_url = None
+        self.stream_type = None
 
 class Stations:
     def __init__(self, stations = []) -> None:
@@ -62,10 +63,13 @@ class Stations:
             self.contacts[contact.ip] = contact
 
 class Client:
-    def __init__(self, hass: HomeAssistant, config):
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
         self.hass = hass
-        self.server = urlparse(config[CONF_SERVER_ADDREDD])
+        self.entry_id = entry.entry_id
+        self.server = urlparse(entry.data[CONF_SERVER_ADDRESS])
+        self.filepath = entry.data[CONF_FILEPATH]
         self.server_addr = f'{self.server.scheme}://{self.server.hostname}:{PORT_CONFIG}'
+        self.online = False
         self.monitor = None
         self.stations = None
         self.elev = None
@@ -79,15 +83,17 @@ class Client:
             self.stations = Stations(data.get(CONF_STATIONS, []))
             self.family = data.get(CONF_FAMILY, 1)
             self.elev = data.get(CONF_ELEV_ID, 0)
-            stream_type = data.get(CONF_STREAM, None)
-            if stream_type == STREAM_TYPE_MJPEG:
+            self.monitor.stream_type = data.get(CONF_STREAM, None)
+            self.playback_path = data.get(CONF_PLAYBACK, None)
+            if self.monitor.stream_type == STREAM_TYPE_MJPEG:
                 self.monitor.mjpeg_url = f'{self.server.scheme}://{self.server.hostname}:{PORT_STREAM}'
                 self.monitor.snapshot_url = f'{self.server.scheme}://{self.server.hostname}:{PORT_STREAM}/snapshot'
-            elif stream_type == STREAM_TYPE_RTSP:
+                if self.playback_path:
+                    self.monitor.playback_url = f'{self.server.scheme}://{self.server.hostname}:{PORT_STREAM}{self.playback_path}'
+            elif self.monitor.stream_type == STREAM_TYPE_RTSP:
                 self.monitor.rtsp_url = f'rtsp://{self.server.hostname}:{PORT_STREAM}'
-            playback_path = data.get(CONF_PLAYBACK, None)
-            if playback_path:
-                self.monitor.playback_url = f'{self.server.scheme}://{self.server.hostname}:{PORT_CONFIG}{playback_path}'
+                if self.playback_path:
+                    self.monitor.playback_url = f'{self.server.scheme}://{self.server.hostname}:{PORT_CONFIG}{self.playback_path}'
         except Exception as e:
             _LOGGER.info(f"Failed to initialize: {str(e)}")
 
@@ -122,9 +128,26 @@ class Client:
         self.hass.loop.call_soon_threadsafe(
             async_dispatcher_send,
             self.hass,
-            f"{DOMAIN}_{self.hass.data[DOMAIN][MONITOR].device_id}_{LATEST_EVENT}",
+            f"{DOMAIN}_{self.hass.data[DOMAIN][self.entry_id].monitor.device_id}_{LATEST_EVENT}",
             state_attributes
         )
+
+    async def check_online(self) -> bool:
+        full_url = f"{self.server_addr}{'/status'}"
+        _LOGGER.info(f"Aiohttp GET request to {full_url}")
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.get(full_url) as response:
+                    status = response.status
+                    # response_text = await response.text()
+                    
+                    _LOGGER.info(f"Aiohttp GET completed with status {status}.")
+                    self.online = response.status == 200
+            except aiohttp.ClientError as e:
+                _LOGGER.warning(f"Aiohttp GET failed: {str(e)}")
+                self.online = False
+
+        return self.online
 
     async def execute(self, data):
         if isinstance(data, str):
@@ -138,56 +161,14 @@ class Client:
         tag = data.get('tag')
         call_id = data.get('call_id')
 
-        if data['event'] == 'appoint':
-            await self.appoint_advanced(sip_from=sip_from, sip_to=sip_to, elev=elev, direct=direct, family=family)
-        elif data['event'] == 'unlock':
+        if data['event'] == 'unlock':
             await self.unlock_advanced(sip_from=sip_from, sip_to=sip_to, family=family)
+        elif data['event'] == 'appoint':
+            await self.appoint_advanced(sip_from=sip_from, sip_to=sip_to, elev=elev, direct=direct, family=family)
         elif data['event'] == 'permit':
             await self.permit_advanced(sip_from=sip_from, sip_to=sip_to, elev=elev, family=family)
         elif data['event'] == 'bye':
             await self.bye_advanced(sip_from=sip_from, sip_to=sip_to, tag=tag, call_id=call_id)
-
-    async def appoint_advanced(self, sip_from, sip_to, elev, direct, family):
-        # join
-        # data = {
-        #     "from": sip_from if sip_from else self.monitor.info,
-        #     "to": sip_to,
-        #     "event": 'join',
-        #     "family": '1',
-        #     "elev": 0,
-        #     "direct": '1',
-        # }
-        # await self.post_request(data=data)
-
-        # appoint
-        data = {
-            "from": sip_from if sip_from else self.monitor.info,
-            "to": sip_to if sip_to else '',
-            "event": 'appoint',
-            "family": family,
-            "elev": elev,
-            "direct": direct,
-        }
-        await self.post_request(data=data)
-
-        # update sensor
-        state_attributes = {
-            'event': 'appoint',
-            'from': sip_from,
-            'to': sip_to,
-            'direct': direct, 
-            'time': datetime.now().isoformat()
-        }
-        self.update_latest_event(state_attributes)
-
-    async def appoint(self, sip_to, direct):
-        await self.appoint_advanced(
-            sip_from=self.monitor.info, 
-            sip_to=sip_to, 
-            elev=self.elev, 
-            direct=direct, 
-            family=self.family
-        )
 
     async def unlock_advanced(self, sip_from, sip_to, family = 1):
         data = {
@@ -216,13 +197,48 @@ class Client:
             family=self.family
         )
 
-    async def permit_advanced(self, sip_from, sip_to, elev, family = 1):
+    async def appoint_advanced(self, sip_from, sip_to, elev, direct, floor, family):
+        # appoint
+        data = {
+            "from": sip_from if sip_from else self.monitor.info,
+            "to": sip_to if sip_to else '',
+            "event": 'appoint',
+            "family": family,
+            "elev": elev,
+            "direct": direct,
+            "floor": floor if floor else '',
+        }
+        await self.post_request(data=data)
+
+        # update sensor
+        state_attributes = {
+            'event': 'appoint',
+            'from': sip_from,
+            'to': sip_to,
+            'direct': direct, 
+            'floor': floor if floor else '',
+            'time': datetime.now().isoformat()
+        }
+        self.update_latest_event(state_attributes)
+
+    async def appoint(self, sip_to, direct, floor=None):
+        await self.appoint_advanced(
+            sip_from=self.monitor.info, 
+            sip_to=sip_to, 
+            elev=self.elev, 
+            direct=direct, 
+            floor=floor,
+            family=self.family
+        )
+
+    async def permit_advanced(self, sip_from, sip_to, elev, floor, family = 1):
         data = {
             "from": sip_from if sip_from else self.monitor.info,
             "to": sip_to if sip_to else '',
             "event": 'permit',
             "family": family,
             "elev": elev,
+            "floor": floor if floor else '',
             "direct": '1',
         }
         await self.post_request(data=data)
@@ -232,19 +248,22 @@ class Client:
             'event': 'permit',
             'from': sip_from,
             'to': sip_to,
+            "elev": elev,
+            "floor": floor if floor else '',
             'time': datetime.now().isoformat()
         }
         self.update_latest_event(state_attributes)
 
-    async def permit(self, sip_to):
+    async def permit(self, sip_to, floor=None):
         await self.permit_advanced(
             sip_from=self.monitor.info, 
             sip_to=sip_to,  
             elev=self.elev, 
+            floor=floor,
             family = self.family
         )
 
-    async def bye_advanced(self, sip_from, sip_to, tag=None, call_id=None):
+    async def bye_advanced(self, sip_from=None, sip_to=None, tag=None, call_id=None):
         data = {
             "from": sip_from if sip_from else '',
             "to": sip_to if sip_to else self.monitor.info,
@@ -266,8 +285,7 @@ class Client:
         }
         self.update_latest_event(state_attributes)
 
-    async def bye(self, sip_from):
+    async def bye(self, sip_to):
         await self.bye_advanced(
-            sip_from=sip_from, 
-            sip_to=self.monitor.info
+            sip_to=sip_to
         )

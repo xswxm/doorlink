@@ -4,13 +4,8 @@
             "user": {
                 "title": "Configure DOORLINK",
                 "data": {
-                    "sip_info": "Contact",
-                    "family": "Family ID",
-                    "elev_id": "Elevator ID",
-                    "openwrt_address": "OpenWrt IP Address",
-                    "ring_port": "Call Listening Port",
-                    "stations": "Outdoor Stations (JSON)",
-                    "live_supprt": "Live Streaming"
+                    "server_address": "Server Address",
+                    "filepath": "Playback Video Folder"
                 }
             }
         }
@@ -20,22 +15,19 @@
             "init": {
                 "title": "Configure DOORLINK",
                 "data": {
-                    "sip_info": "Contact",
-                    "family": "Family ID",
-                    "elev_id": "Elevator ID",
-                    "openwrt_address": "OpenWrt IP Address",
-                    "ring_port": "Call Listening Port",
-                    "stations": "Outdoor Stations (JSON)",
-                    "live_supprt": "Live Streaming"
+                    "server_address": "Server Address",
+                    "filepath": "Playback Video Folder"
                 }
             }
         }
     },
     "entity": {
-        "button": {
+        "lock": {
             "unlock": {
                 "name": "Unlock Door"
-            },
+            }
+        },
+        "button": {
             "bye": {
                 "name": "Bye"
             },
@@ -83,9 +75,13 @@
             "name": "Unlock Door",
             "description": "Unlock the door",
             "fields": {
+                "server_address": {
+                    "name": "Server",
+                    "description": "Doorlink Address, such as http://192.168.1.100:8080."
+                },
                 "sip_info": {
-                    "name": "Contact",
-                    "description": "Contact, such as 10019901@172.16.0.101:5060."
+                    "name": "SIP Info",
+                    "description": "SIP Info, such as 10019901@172.16.0.101:5060."
                 }
             }
         },
@@ -93,9 +89,13 @@
             "name": "Elevator Appointment",
             "description": "Control elevator direction (up or down)",
             "fields": {
+                "server_address": {
+                    "name": "Server",
+                    "description": "Doorlink Address, such as http://192.168.1.100:8080."
+                },
                 "sip_info": {
-                    "name": "Contact",
-                    "description": "Contact, such as 10019901@172.16.0.101:5060."
+                    "name": "SIP Info",
+                    "description": "SIP Info, such as 10019901@172.16.0.101:5060."
                 },
                 "direct": {
                     "name": "Direction",
@@ -107,9 +107,13 @@
             "name": "Grant Elevator Access",
             "description": "Grant access to specific elevator floors.",
             "fields": {
+                "server_address": {
+                    "name": "Server",
+                    "description": "Doorlink Address, such as http://192.168.1.100:8080."
+                },
                 "sip_info": {
-                    "name": "Contact",
-                    "description": "Contact, such as 10019901@172.16.0.101:5060."
+                    "name": "SIP Info",
+                    "description": "SIP Info, such as 10019901@172.16.0.101:5060."
                 }
             }
         },
@@ -117,17 +121,13 @@
             "name": "Hung Up",
             "description": "Hung up current call.",
             "fields": {
+                "server_address": {
+                    "name": "Server",
+                    "description": "Doorlink Address, such as http://192.168.1.100:8080."
+                },
                 "sip_info": {
-                    "name": "Contact",
-                    "description": "Contact, such as 10019901@172.16.0.101:5060."
-                },
-                "call_id": {
-                    "name": "Call ID",
-                    "description": "Current Call-ID."
-                },
-                "tag": {
-                    "name": "Call TAG",
-                    "description": "Current TAG."
+                    "name": "SIP Info",
+                    "description": "SIP Info, such as 10019901@172.16.0.101:5060."
                 }
             }
         },
@@ -135,6 +135,10 @@
             "name": "Execute Command",
             "description": "Execute a command, supporting more complex instructions.",
             "fields": {
+                "server_address": {
+                    "name": "Server",
+                    "description": "Doorlink Address, such as http://192.168.1.100:8080."
+                },
                 "json_data": {
                     "name": "JSON Data",
                     "description": "JSON data."
