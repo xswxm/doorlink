@@ -11,7 +11,7 @@ from .const import (
     SW_VERSION, 
 
     STREAM_TYPE_MJPEG,
-    STREAM_TYPE_RTSP,
+    STREAM_TYPE_H264,
 )
 
 import logging
@@ -54,7 +54,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
                     translation_key = 'playback'
                 )
             )
-        elif monitor.stream_type == STREAM_TYPE_RTSP:
+        elif monitor.stream_type == STREAM_TYPE_H264:
             entities.append(
                 H264Stream(
                     hass=hass,

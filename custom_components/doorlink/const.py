@@ -4,7 +4,7 @@ from typing import Final
 DOMAIN: Final = "doorlink"
 
 MANUFACTURER: Final = "doorlink"
-SW_VERSION: Final = "4.1.0"
+SW_VERSION: Final = "4.1.1"
 
 DEVICE_ID: Final = "device_id"
 
@@ -23,7 +23,7 @@ PORT_CONFIG: Final = 8080
 PORT_STREAM: Final = 8554
 
 STREAM_TYPE_MJPEG = "mjpeg"
-STREAM_TYPE_RTSP = "rtsp"
+STREAM_TYPE_H264 = "h264"
 
 LATEST_EVENT: Final = 'latest_event'
 RING_STATUS: Final = 'ring_status'

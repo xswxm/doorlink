@@ -22,7 +22,7 @@ from .const import (
     PORT_CONFIG, 
     PORT_STREAM, 
     STREAM_TYPE_MJPEG,
-    STREAM_TYPE_RTSP, 
+    STREAM_TYPE_H264, 
 )
  
 import logging
@@ -90,7 +90,7 @@ class Client:
                 self.monitor.snapshot_url = f'{self.server.scheme}://{self.server.hostname}:{PORT_STREAM}/snapshot'
                 if self.playback_path:
                     self.monitor.playback_url = f'{self.server.scheme}://{self.server.hostname}:{PORT_STREAM}{self.playback_path}'
-            elif self.monitor.stream_type == STREAM_TYPE_RTSP:
+            elif self.monitor.stream_type == STREAM_TYPE_H264:
                 self.monitor.rtsp_url = f'rtsp://{self.server.hostname}:{PORT_STREAM}'
                 if self.playback_path:
                     self.monitor.playback_url = f'{self.server.scheme}://{self.server.hostname}:{PORT_CONFIG}{self.playback_path}'
