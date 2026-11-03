@@ -1,13 +1,14 @@
 {
   "domain": "doorlink",
   "name": "Doorlink",
-  "version": "4.1.1",
-  "documentation": "https://github.com/xswxm/doorlink",
-  "issue_tracker": "https://github.com/xswxm/doorlink/issues",
+  "codeowners": ["@xswxm"],
   "config_flow": true,
-  "iot_class": "local_polling",
-  "translation_key": true,
+  "dependencies": ["http", "stream"],
+  "documentation": "https://github.com/xswxm/doorlink",
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/xswxm/doorlink/issues",
+  "loggers": ["doorlink"],
   "requirements": [],
-  "dependencies": [],
-  "codeowners": ["@xswxm"]
+  "version": "5.0.1"
 }

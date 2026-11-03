@@ -1,377 +1,421 @@
-from homeassistant.core import HomeAssistant
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.components.http import HomeAssistantView
-from homeassistant.helpers.dispatcher import async_dispatcher_send, async_dispatcher_connect
-from aiohttp import ClientSession
-from aiohttp.web import Request, Response, json_response
+"""The doorlink integration."""
+
+from __future__ import annotations
+
 import asyncio
-import aiofiles
 import json
+import logging
 import os
-from datetime import datetime
+from contextlib import suppress
+from typing import Any
 from urllib.parse import parse_qs, urlparse
+
+import aiofiles
+import aiohttp
+from aiohttp.web import Request, Response, json_response
+
+from homeassistant.components.http import HomeAssistantView
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.dispatcher import (
+    async_dispatcher_connect,
+    async_dispatcher_send,
+)
+from homeassistant.util import dt as dt_util
 
 from .client import Client, SIPContact
 from .const import (
-    DOMAIN, 
-    PLATFORMS, 
-    CONF_SERVER_ADDRESS, 
+    ATTR_DIRECT,
+    ATTR_FLOOR,
+    ATTR_JSON_DATA,
+    ATTR_SIP_INFO,
+    CONF_SERVER_ADDRESS,
+    DIRECT_UP,
+    DOMAIN,
+    EVENT_APPOINT,
+    EVENT_BYE,
+    EVENT_PERMIT,
+    EVENT_RELOAD,
+    EVENT_RING,
+    EVENT_UNLOCK,
+    LATEST_EVENT,
+    PLATFORMS,
+    PLAYBACK_POLL_ATTEMPTS,
+    PLAYBACK_POLL_INTERVAL,
     PORT_CONFIG,
-
-    LATEST_EVENT, 
-    RING_STATUS, 
+    RING_STATUS,
+    EVENT_SOC_TEMP, 
+    SOC_TEMP,
 )
 
-import logging
 _LOGGER = logging.getLogger(__name__)
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
-    _LOGGER.debug(f'entry.data: {entry.data}')
+SERVICES: tuple[str, ...] = (
+    EVENT_UNLOCK,
+    EVENT_APPOINT,
+    EVENT_PERMIT,
+    EVENT_BYE,
+    "execute",
+)
+
+VIEW_REGISTERED: str = f"{DOMAIN}_view"
+
+
+# ----------------------------------------------------------------------
+# Helpers
+# ----------------------------------------------------------------------
+def _normalize_server(address: str) -> str:
+    """Normalize a server address so it can be compared with Client.server_addr."""
+    parsed = urlparse(address if "//" in address else f"//{address}")
+    scheme = parsed.scheme or "http"
+    host = parsed.hostname or ""
+    port = parsed.port or PORT_CONFIG
+    return f"{scheme}://{host}:{port}"
+
+
+async def _async_run_service(
+    hass: HomeAssistant, service: str, call: ServiceCall
+) -> dict[str, str]:
+    """Run a doorlink service against one or all configured servers."""
+    clients: list[Client] = list(hass.data.get(DOMAIN, {}).values())
+    address = call.data.get(CONF_SERVER_ADDRESS)
+    if address:
+        wanted = _normalize_server(address)
+        clients = [client for client in clients if client.server_addr == wanted]
+        if not clients:
+            message = f"Server '{address}' not found"
+            hass.bus.async_fire(
+                f"{DOMAIN}.{service}", {"status": "error", "message": message}
+            )
+            raise HomeAssistantError(message)
+    if not clients:
+        raise HomeAssistantError("No doorlink server is configured")
+
+    sip_info = call.data.get(ATTR_SIP_INFO)
+    floor = call.data.get(ATTR_FLOOR)
+    direct = call.data.get(ATTR_DIRECT)
+    tasks = []
+    for client in clients:
+        if service == EVENT_UNLOCK:
+            tasks.append(client.unlock(sip_to=sip_info))
+        elif service == EVENT_APPOINT:
+            tasks.append(
+                client.appoint(
+                    sip_to=sip_info,
+                    direct=direct if direct is not None else DIRECT_UP,
+                    floor=floor,
+                )
+            )
+        elif service == EVENT_PERMIT:
+            tasks.append(client.permit(sip_to=sip_info, floor=floor))
+        elif service == EVENT_BYE:
+            tasks.append(client.bye(sip_to=sip_info))
+        elif service == "execute":
+            tasks.append(client.execute(data=call.data.get(ATTR_JSON_DATA)))
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    errors = [
+        str(result) for result in results if isinstance(result, BaseException)
+    ]
+    for result in results:
+        if isinstance(result, BaseException):
+            _LOGGER.debug("doorlink.%s failed", service, exc_info=result)
+
+    payload: dict[str, str] = {"status": "error" if errors else "success"}
+    if errors:
+        payload["message"] = "; ".join(errors)
+    hass.bus.async_fire(f"{DOMAIN}.{service}", payload)
+    if errors:
+        raise HomeAssistantError(payload["message"])
+    return payload
+
+
+def _async_register_services(hass: HomeAssistant) -> None:
+    """Register the doorlink services once."""
+    for service in SERVICES:
+        if hass.services.has_service(DOMAIN, service):
+            continue
+
+        async def _handle(call: ServiceCall, _service: str = service) -> dict[str, str]:
+            return await _async_run_service(hass, _service, call)
+
+        hass.services.async_register(
+            DOMAIN,
+            service,
+            _handle,
+            supports_response=SupportsResponse.OPTIONAL,
+        )
+
+
+def _async_unregister_services(hass: HomeAssistant) -> None:
+    """Remove the doorlink services when the last entry is unloaded."""
+    for service in SERVICES:
+        if hass.services.has_service(DOMAIN, service):
+            hass.services.async_remove(DOMAIN, service)
+
+
+async def _async_announce(client: Client, entry_id: str) -> None:
+    """Tell the doorlink server where to push its events."""
+    payload = {
+        "event": "doorlink",
+        "data": json.dumps({"api": f"/api/doorlink/{entry_id}"}),
+    }
+    try:
+        await client.post_request(payload)
+    except HomeAssistantError as err:
+        _LOGGER.warning("Unable to announce the callback URL: %s", err)
+
+
+# ----------------------------------------------------------------------
+# Entry setup
+# ----------------------------------------------------------------------
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up doorlink from a config entry."""
+    _LOGGER.debug("entry.data: %s", entry.data)
 
     hass.data.setdefault(DOMAIN, {})
 
-    # Initialize Client
     client = Client(hass, entry)
+    # Raises ConfigEntryNotReady (and retries later) when the server is away.
     await client.initialize()
     hass.data[DOMAIN][entry.entry_id] = client
 
-    # Initialize HTTP Viewer
-    hass.http.register_view(DoorlinkView(hass, entry.entry_id))
+    if not hass.data.get(VIEW_REGISTERED):
+        hass.http.register_view(DoorlinkView(hass))
+        hass.data[VIEW_REGISTERED] = True
 
-    # Register Services
-    async def unlock(call):
-        server_addr = call.data.get(CONF_SERVER_ADDRESS)
-        sip_info = call.data.get("sip_info")
-        tasks = []
-        if server_addr:
-            for c in hass.data[DOMAIN].values():
-                if urlparse(server_addr) == c.server:
-                    tasks.append(c.unlock(sip_to=sip_info))
-                    break
-            if not tasks:
-                hass.bus.fire(
-                    "doorlink.unlock",
-                    {
-                        "status": "error",
-                        "message": f"Server '{server_addr}' not found",
-                    },
-                )
-                return
-        else:
-            tasks = [
-                c.unlock(sip_to=sip_info)
-                for c in hass.data[DOMAIN].values()
-            ]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        success = True
-        errors = []
-        for result in results:
-            if isinstance(result, Exception):
-                success = False
-                errors.append(str(result))
-                _LOGGER.exception("unlock failed", exc_info=result)
-        payload = {"status": "success" if success else "error"}
-        if errors:
-            payload["message"] = "; ".join(errors)
-        hass.bus.fire("doorlink.unlock", payload)
-    if not hass.services.has_service(DOMAIN, "unlock"):
-        hass.services.async_register(DOMAIN, "unlock", unlock)
+    _async_register_services(hass)
 
-    async def appoint(call):
-        server_addr = call.data.get(CONF_SERVER_ADDRESS)
-        sip_info = call.data.get("sip_info")
-        floor = call.data.get("floor")
-        direct = call.data.get("direct")
-        tasks = []
-        if server_addr:
-            for c in hass.data[DOMAIN].values():
-                if urlparse(server_addr) == c.server:
-                    tasks.append(c.appoint(sip_to=sip_info, floor=floor, direct=direct))
-                    break
-            if not tasks:
-                hass.bus.fire(
-                    "doorlink.appoint",
-                    {
-                        "status": "error",
-                        "message": f"Server '{server_addr}' not found",
-                    },
-                )
-                return
-        else:
-            tasks = [
-                c.appoint(sip_to=sip_info, floor=floor, direct=direct)
-                for c in hass.data[DOMAIN].values()
-            ]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        success = True
-        errors = []
-        for result in results:
-            if isinstance(result, Exception):
-                success = False
-                errors.append(str(result))
-                _LOGGER.exception("appoint failed", exc_info=result)
-        payload = {"status": "success" if success else "error"}
-        if errors:
-            payload["message"] = "; ".join(errors)
-        hass.bus.fire("doorlink.appoint", payload)
-    if not hass.services.has_service(DOMAIN, "appoint"):
-        hass.services.async_register(DOMAIN, "appoint", appoint)
-
-    async def permit(call):
-        server_addr = call.data.get(CONF_SERVER_ADDRESS)
-        sip_info = call.data.get("sip_info")
-        floor = call.data.get("floor")
-        tasks = []
-        if server_addr:
-            for c in hass.data[DOMAIN].values():
-                if urlparse(server_addr) == c.server:
-                    tasks.append(c.permit(sip_to=sip_info, floor=floor))
-                    break
-            if not tasks:
-                hass.bus.fire(
-                    "doorlink.permit",
-                    {
-                        "status": "error",
-                        "message": f"Server '{server_addr}' not found",
-                    },
-                )
-                return
-        else:
-            tasks = [
-                c.permit(sip_to=sip_info, floor=floor)
-                for c in hass.data[DOMAIN].values()
-            ]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        success = True
-        errors = []
-        for result in results:
-            if isinstance(result, Exception):
-                success = False
-                errors.append(str(result))
-                _LOGGER.exception("permit failed", exc_info=result)
-        payload = {"status": "success" if success else "error"}
-        if errors:
-            payload["message"] = "; ".join(errors)
-        hass.bus.fire("doorlink.permit", payload)
-    if not hass.services.has_service(DOMAIN, "permit"):
-        hass.services.async_register(DOMAIN, "permit", permit)
-
-    async def bye(call):
-        server_addr = call.data.get(CONF_SERVER_ADDRESS)
-        sip_info = call.data.get("sip_info")
-        tasks = []
-        if server_addr:
-            for c in hass.data[DOMAIN].values():
-                if urlparse(server_addr) == c.server:
-                    tasks.append(c.bye(sip_to=sip_info))
-                    break
-            if not tasks:
-                hass.bus.fire(
-                    "doorlink.bye",
-                    {
-                        "status": "error",
-                        "message": f"Server '{server_addr}' not found",
-                    },
-                )
-                return
-        else:
-            tasks = [
-                c.bye(sip_to=sip_info)
-                for c in hass.data[DOMAIN].values()
-            ]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        success = True
-        errors = []
-        for result in results:
-            if isinstance(result, Exception):
-                success = False
-                errors.append(str(result))
-                _LOGGER.exception("bye failed", exc_info=result)
-        payload = {"status": "success" if success else "error"}
-        if errors:
-            payload["message"] = "; ".join(errors)
-        hass.bus.fire("doorlink.bye", payload)
-    if not hass.services.has_service(DOMAIN, "bye"):
-        hass.services.async_register(DOMAIN, "bye", bye)
-
-    async def execute(call):
-        server_addr = call.data.get(CONF_SERVER_ADDRESS)
-        json_data = call.data.get('json_data')
-        tasks = []
-        if server_addr:
-            for c in hass.data[DOMAIN].values():
-                if urlparse(server_addr) == c.server:
-                    tasks.append(c.execute(data=json_data))
-                    break
-            if not tasks:
-                hass.bus.fire(
-                    "doorlink.execute",
-                    {
-                        "status": "error",
-                        "message": f"Server '{server_addr}' not found",
-                    },
-                )
-                return
-        else:
-            tasks = [
-                c.execute(data=json_data)
-                for c in hass.data[DOMAIN].values()
-            ]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        success = True
-        errors = []
-        for result in results:
-            if isinstance(result, Exception):
-                success = False
-                errors.append(str(result))
-                _LOGGER.exception("execute failed", exc_info=result)
-        payload = {"status": "success" if success else "error"}
-        if errors:
-            payload["message"] = "; ".join(errors)
-        hass.bus.fire("doorlink.execute", payload)
-    if not hass.services.has_service(DOMAIN, "execute"):
-        hass.services.async_register(DOMAIN, "execute", execute)
-
-    # Reload Entity
-    async def handle_reload():
+    async def _async_handle_reload() -> None:
         await hass.config_entries.async_reload(entry.entry_id)
 
     entry.async_on_unload(
         async_dispatcher_connect(
-            hass,
-            f"{DOMAIN}_{entry.entry_id}_RELOAD",
-            handle_reload
+            hass, f"{DOMAIN}_{entry.entry_id}_{EVENT_RELOAD}", _async_handle_reload
         )
     )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    entry.async_create_background_task(
+        hass,
+        _async_announce(client, entry.entry_id),
+        f"{DOMAIN} announce {entry.entry_id}",
+    )
     return True
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
-    hass.data[DOMAIN].pop(entry.entry_id)
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload a doorlink config entry."""
+    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded:
+        hass.data[DOMAIN].pop(entry.entry_id, None)
+        if not hass.data[DOMAIN]:
+            _async_unregister_services(hass)
+    return unloaded
+
+
+# ----------------------------------------------------------------------
+# HTTP view
+# ----------------------------------------------------------------------
 class DoorlinkView(HomeAssistantView):
+    """Receive the events pushed by the doorlink server."""
+
+    url = "/api/doorlink/{entry_id}"
+    name = "api:doorlink"
     requires_auth = True
 
-    def __init__(self, hass: HomeAssistant, entry_id: str):
+    def __init__(self, hass: HomeAssistant) -> None:
+        """Initialize the view."""
         self._hass = hass
-        self._entry_id = entry_id
-        self.url = f"/api/doorlink/{entry_id}"
-        self.name = f"api:doorlink:{entry_id}"
-        self.client = hass.data[DOMAIN][entry_id]
-        self.filename = ""
-        _LOGGER.debug(f"HTTP Server URL: {self.url}")
-        data = {"api": self.url}
-        payloads = {
-            "event": 'doorlink',
-            "data": json.dumps(data,indent=2),
-        }
-        hass.loop.call_soon_threadsafe(
-            asyncio.create_task, 
-            self.client.post_request(payloads)
+        self._downloaded: set[str] = set()
+        self._downloading: set[str] = set()
+        _LOGGER.debug("HTTP server URL: %s", self.url)
+
+    async def post(self, request: Request, entry_id: str) -> Response:
+        """Handle an event posted by the doorlink server."""
+        client: Client | None = self._hass.data.get(DOMAIN, {}).get(entry_id)
+        if client is None:
+            return json_response(
+                {"error": f"Unknown doorlink entry: {entry_id}"}, status=404
             )
 
-    def _parse_content_type(self, content_type: str) -> str:
-        if content_type:
-            return content_type.split(";", 1)[0].strip()
-        return ""
-
-    async def post(self, request: Request) -> Response:
+        content_type = (
+            request.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+        )
         try:
-            content_type = self._parse_content_type(request.headers.get("Content-Type", ""))
             if content_type == "application/json":
                 payloads = await request.json()
-                _LOGGER.debug(f"Received JSON data: {payloads}")
+                _LOGGER.debug("Received JSON data: %s", payloads)
             elif content_type == "application/x-www-form-urlencoded":
                 raw_data = await request.text()
-                payloads = {k: v[0] for k, v in parse_qs(raw_data, keep_blank_values=True).items()}
-                _LOGGER.debug(f"Received form-urlencoded data: {payloads}")
+                payloads = {
+                    key: value[0]
+                    for key, value in parse_qs(
+                        raw_data, keep_blank_values=True
+                    ).items()
+                }
+                _LOGGER.debug("Received form-urlencoded data: %s", payloads)
             else:
-                _LOGGER.warning(f"Unsupported Content-Type: {content_type}")
-                return json_response({"error": f"Unsupported Content-Type: {content_type}"}, status=400)
+                _LOGGER.warning("Unsupported Content-Type: %s", content_type)
+                return json_response(
+                    {"error": f"Unsupported Content-Type: {content_type}"}, status=415
+                )
+        except (ValueError, UnicodeDecodeError) as err:
+            _LOGGER.error("Invalid payload: %s", err)
+            return json_response({"error": "Invalid payload"}, status=400)
 
-            await self.handle_post(payloads)
-            return json_response({"status": "success"}, status=200)
+        if not isinstance(payloads, dict):
+            return json_response({"error": "Payload must be an object"}, status=400)
 
-        except json.JSONDecodeError as e:
-            _LOGGER.error(f"Invalid JSON: {e}")
-            return json_response({"error": "Invalid JSON"}, status=400)
-        except UnicodeDecodeError as e:
-            _LOGGER.error(f"UnicodeDecodeError: {e}")
-            return json_response({"error": "Invalid data encoding"}, status=400)
-        except Exception as e:
-            _LOGGER.error(f"Exception: {e}")
-            return json_response({"error": str(e)}, status=400)
+        await self._async_handle_event(client, payloads)
+        return json_response({"status": "success"}, status=200)
 
-    async def handle_post(self, payloads: dict):
-        state_attributes = {k: v for k, v in payloads.items() if v is not None}
-        state_attributes['event'] = payloads.get('event', 'ring')
-        state_attributes['time'] = datetime.now().isoformat()
+    async def _async_handle_event(
+        self, client: Client, payloads: dict[str, Any]
+    ) -> None:
+        """Dispatch a single event to the entities."""
+        if client.monitor is None:  # pragma: no cover - defensive
+            return
+
+        state_attributes = {
+            key: value for key, value in payloads.items() if value is not None
+        }
+        event = payloads.get("event", EVENT_RING)
+        state_attributes["event"] = event
+        state_attributes["time"] = dt_util.now().isoformat()
+
         async_dispatcher_send(
             self._hass,
-            f"{DOMAIN}_{self.client.monitor.device_id}_{LATEST_EVENT}",
+            f"{DOMAIN}_{client.monitor.device_id}_{LATEST_EVENT}",
             state_attributes,
         )
-        if state_attributes['event'] == 'ring':
+
+        if event == EVENT_RING:
             async_dispatcher_send(
                 self._hass,
-                f"{DOMAIN}_{self.client.monitor.device_id}_{RING_STATUS}",
+                f"{DOMAIN}_{client.monitor.device_id}_{RING_STATUS}",
                 True,
             )
-            sip_from = SIPContact(payloads.get('from'))
+            sip_from = SIPContact(payloads.get("from"))
             if sip_from.device_id:
                 async_dispatcher_send(
                     self._hass,
                     f"{DOMAIN}_{sip_from.device_id}_{RING_STATUS}",
                     True,
                 )
-            if self.client.playback_path:
-                self._hass.async_create_task(self.download_playback_video())
-        elif state_attributes['event'] == 'reload':
+            if client.playback_path:
+                self._hass.async_create_task(
+                    self._async_download_playback(client),
+                    name=f"{DOMAIN} playback {client.entry_id}",
+                )
+        elif event == EVENT_SOC_TEMP:
+            try:
+                soc_temp = float(payloads.get(SOC_TEMP))
+            except (TypeError, ValueError):
+                _LOGGER.warning("Invalid soc_temp payload: %s", payloads)
+                return
             async_dispatcher_send(
                 self._hass,
-                f"{DOMAIN}_{self._entry_id}_RELOAD"
+                f"{DOMAIN}_{client.monitor.device_id}_{SOC_TEMP}",
+                soc_temp,
+            )
+        elif event == EVENT_RELOAD:
+            async_dispatcher_send(
+                self._hass, f"{DOMAIN}_{client.entry_id}_{EVENT_RELOAD}"
             )
 
-    async def download_playback_video(self):
-        video_url = f'{self.client.server.scheme}://{self.client.server.hostname}:{PORT_CONFIG}{self.client.playback_path}'
-        info_url = f"{video_url}/info"
+    # ------------------------------------------------------------------
+    # Playback video
+    # ------------------------------------------------------------------
+    async def _async_download_playback(self, client: Client) -> None:
+        """Download the playback video of the last call, once per file."""
+        if client.entry_id in self._downloading:
+            return
+        self._downloading.add(client.entry_id)
+        try:
+            await self._async_download_playback_file(client)
+        except Exception:  # noqa: BLE001 - background task must not explode
+            _LOGGER.exception("Playback download failed")
+        finally:
+            self._downloading.discard(client.entry_id)
 
-        last_size = -1
+    async def _async_download_playback_file(self, client: Client) -> None:
+        """Poll the playback info endpoint and download the finished file."""
+        video_url = f"{client.server_addr}{client.playback_path}"
+        info_url = f"{video_url}/info"
+        session = async_get_clientsession(self._hass)
+
         filename = ""
-        sync_count = 0
-        async with ClientSession() as session:
-            while True:
-                try:
-                    await asyncio.sleep(3)
-                    async with session.get(info_url, timeout=5) as resp:
-                        info = await resp.json()
-                    sync_count += 1
-                    filename = info["filename"]
-                    size = info["size"]
-                    if size == 0 or filename == self.filename:
-                        return
-                    if size > 0 and (size == last_size or sync_count > 60):
-                        break
-                    last_size = size
-                except Exception as err:
-                    _LOGGER.warning("Playback info polling failed: %s", err)
+        last_size = -1
+        for _ in range(PLAYBACK_POLL_ATTEMPTS):
+            await asyncio.sleep(PLAYBACK_POLL_INTERVAL)
+            try:
+                async with session.get(
+                    info_url, timeout=aiohttp.ClientTimeout(total=5)
+                ) as response:
+                    if response.status != 200:
+                        _LOGGER.debug(
+                            "Playback info returned HTTP %s", response.status
+                        )
+                        continue
+                    info = await response.json(content_type=None)
+            except (aiohttp.ClientError, TimeoutError, ValueError) as err:
+                _LOGGER.debug("Playback info polling failed: %s", err)
+                return
+
+            if not isinstance(info, dict):
+                _LOGGER.debug("Unexpected playback info payload: %s", info)
+                return
+
+            # Only keep the base name, the server must not pick our local path.
+            filename = os.path.basename(str(info.get("filename") or ""))
+            try:
+                size = int(info.get("size") or 0)
+            except (TypeError, ValueError):
+                _LOGGER.debug("Invalid playback size: %s", info.get("size"))
+                return
+            if not filename or size == 0:
+                return
+            if filename in self._downloaded:
+                return
+            if size == last_size:
+                break
+            last_size = size
+        else:
+            _LOGGER.debug("Playback info polling timed out")
+            return
+
+        if not filename:  # pragma: no cover - defensive
+            return
+
+        filepath = os.path.join(client.filepath, filename)
+        if await self._hass.async_add_executor_job(os.path.isfile, filepath):
+            self._downloaded.add(filename)
+            return
+
+        await self._hass.async_add_executor_job(
+            os.makedirs, os.path.dirname(filepath), 0o750, True
+        )
+        try:
+            async with session.get(
+                video_url, timeout=aiohttp.ClientTimeout(total=None)
+            ) as response:
+                if response.status != 200:
+                    _LOGGER.warning(
+                        "Playback download returned HTTP %s", response.status
+                    )
                     return
-            async with session.get(video_url) as resp:
-                if resp.status == 200:
-                    filepath = os.path.join(self.client.filepath, filename)
-                    if os.path.isfile(filepath):
-                        self.filename = filename
-                        return
-                    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-                    try:
-                        async with aiofiles.open(filepath, "wb") as f:
-                            async for chunk in resp.content.iter_chunked(1024 * 1024):
-                                await f.write(chunk)
-                    except Exception:
-                        if os.path.exists(filepath):
-                            os.remove(filepath)
-                        raise
-                    _LOGGER.debug("Playback saved as {filePath}")
-            self.filename = filename
+                async with aiofiles.open(filepath, "wb") as file:
+                    async for chunk in response.content.iter_chunked(1024 * 1024):
+                        await file.write(chunk)
+        except (aiohttp.ClientError, TimeoutError, OSError) as err:
+            _LOGGER.warning("Playback download failed: %s", err)
+            with suppress(OSError):
+                await self._hass.async_add_executor_job(os.remove, filepath)
+            return
+
+        self._downloaded.add(filename)
+        _LOGGER.debug("Playback saved as %s", filepath)

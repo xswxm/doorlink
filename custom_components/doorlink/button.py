@@ -1,81 +1,84 @@
+"""Buttons for the doorlink integration."""
+
 from __future__ import annotations
+
+import logging
 from typing import Any
 
 from homeassistant.components.button import ButtonEntity
+from homeassistant.helpers.device_registry import DeviceInfo
 
 from .const import (
-    DOMAIN, 
-    MANUFACTURER, 
-    SW_VERSION, 
+    DIRECT_DOWN,
+    DIRECT_UP,
+    DOMAIN,
+    MANUFACTURER,
+    SW_VERSION,
 )
 
-import logging
 _LOGGER = logging.getLogger(__name__)
 
-async def async_setup_entry(hass, entry, async_add_entities):
+# translation_key -> (client method, extra kwargs)
+BUTTON_ACTIONS: dict[str, tuple[str, dict[str, Any]]] = {
+    "bye": ("bye", {}),
+    "elev_permit": ("permit", {}),
+    "elev_up": ("appoint", {"direct": DIRECT_UP}),
+    "elev_down": ("appoint", {"direct": DIRECT_DOWN}),
+}
+
+
+async def async_setup_entry(hass, entry, async_add_entities) -> None:
+    """Set up the doorlink buttons."""
     client = hass.data[DOMAIN][entry.entry_id]
+    device_id = client.monitor.device_id
+
     entities = [
-        AccessControl(hass=hass, client=client, device_id = client.monitor.device_id, translation_key = 'bye'),
-        AccessControl(hass=hass, client=client, device_id = client.monitor.device_id, translation_key = 'elev_permit'),
-        AccessControl(hass=hass, client=client, device_id = client.monitor.device_id, translation_key = 'elev_up'),
-        AccessControl(hass=hass, client=client, device_id = client.monitor.device_id, translation_key = 'elev_down'),
+        AccessControl(hass, client, device_id, translation_key)
+        for translation_key in BUTTON_ACTIONS
     ]
-    
-    for key, val in client.stations.contacts.items():
+    for contact in client.stations.contacts.values():
         entities.append(
-                AccessControl(
-                    hass=hass, 
-                    client=client, 
-                    device_id = val.device_id, 
-                    translation_key = 'bye', 
-                    sip_info=val.info
-                )
+            AccessControl(hass, client, contact.device_id, "bye", sip_info=contact.info)
         )
 
     async_add_entities(entities)
 
+
 class AccessControl(ButtonEntity):
+    """A button that sends a SIP command to the server."""
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+
     def __init__(self, hass, client, device_id, translation_key, sip_info=None):
-        self._hass = hass
+        """Initialize the button."""
+        self.hass = hass
         self._client = client
         self._device_id = device_id
         self._translation_key = translation_key
         self._sip_info = sip_info
 
     @property
-    def device_info(self) -> dict[str, Any]:
-        return {
-            "identifiers": {(DOMAIN, self._device_id)},
-            "name": self._device_id,
-            "manufacturer": MANUFACTURER,
-            "sw_version": SW_VERSION
-        }
+    def device_info(self) -> DeviceInfo:
+        """Return the device info."""
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._device_id)},
+            name=self._device_id,
+            manufacturer=MANUFACTURER,
+            sw_version=SW_VERSION,
+        )
 
     @property
     def unique_id(self) -> str:
+        """Return the unique id."""
         return f"{DOMAIN}_{self._device_id}_{self._translation_key}"
 
     @property
-    def has_entity_name(self) -> bool:
-        return True
-
-    @property
     def translation_key(self) -> str:
+        """Return the translation key."""
         return self._translation_key
 
-    @property
-    def available(self) -> bool:
-        return True
-        
     async def async_press(self) -> None:
-        try:
-            if self._translation_key == 'bye':
-                await self._client.bye(self._sip_info)
-            elif self._translation_key == 'elev_permit':
-                await self._client.permit(self._sip_info)
-            elif self._translation_key == 'elev_up':
-                await self._client.appoint(self._sip_info, 1)
-            elif self._translation_key == 'elev_down':
-                await self._client.appoint(self._sip_info, 2)
-        except Exception as e:
-            raise Exception(e)
+        """Send the command; failures surface as HomeAssistantError."""
+        method_name, kwargs = BUTTON_ACTIONS[self._translation_key]
+        await getattr(self._client, method_name)(sip_to=self._sip_info, **kwargs)

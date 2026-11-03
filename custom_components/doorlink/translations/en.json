@@ -6,8 +6,18 @@
                 "data": {
                     "server_address": "Server Address",
                     "filepath": "Playback Video Folder"
+                },
+                "data_description": {
+                    "server_address": "Doorlink address, such as http://192.168.1.100:8080.",
+                    "filepath": "Folder where saved playback videos are stored."
                 }
             }
+        },
+        "error": {
+            "invalid_server_address": "The server address is not a valid URL or host."
+        },
+        "abort": {
+            "already_configured": "This doorlink server is already configured."
         }
     },
     "options": {
@@ -46,6 +56,7 @@
                 "name": "Latest Event",
                 "state": {
                     "ring": "Someone Called the Indoor Monitor",
+                    "appoint": "Elevator Appointed",
                     "elev_up": "Elevator Moving Up",
                     "elev_down": "Elevator Moving Down",
                     "permit": "Elevator Access Granted",
@@ -54,11 +65,17 @@
                     "error": "Error",
                     "reload": "Reload"
                 }
+            },
+            "soc_temp": {
+                "name": "SOC Temperature"
             }
         },
         "binary_sensor": {
             "ring_status": {
                 "name": "Ring Status"
+            },
+            "status": {
+                "name": "Server Online"
             }
         },
         "camera": {
@@ -100,6 +117,10 @@
                 "direct": {
                     "name": "Direction",
                     "description": "Control elevator direction: 1 for Up, 2 for Down."
+                },
+                "floor": {
+                    "name": "Floor",
+                    "description": "Target floor, leave empty to only call the elevator."
                 }
             }
         },
@@ -114,6 +135,10 @@
                 "sip_info": {
                     "name": "SIP Info",
                     "description": "SIP Info, such as 10019901@172.16.0.101:5060."
+                },
+                "floor": {
+                    "name": "Floor",
+                    "description": "Floor to grant access to."
                 }
             }
         },
@@ -141,7 +166,7 @@
                 },
                 "json_data": {
                     "name": "JSON Data",
-                    "description": "JSON data."
+                    "description": "JSON data, such as {\"event\": \"unlock\", \"sip_to\": \"10019901@172.16.0.101:5060\"}."
                 }
             }
         }
