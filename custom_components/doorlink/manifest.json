@@ -10,5 +10,5 @@
   "issue_tracker": "https://github.com/xswxm/doorlink/issues",
   "loggers": ["doorlink"],
   "requirements": [],
-  "version": "5.0.1"
+  "version": "5.0.2"
 }

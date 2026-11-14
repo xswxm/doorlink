@@ -10,7 +10,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import STATE_UNKNOWN, UnitOfTemperature
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import EntityCategory
@@ -102,6 +102,7 @@ class LatestEvent(SensorEntity, RestoreEntity):
             async_dispatcher_connect(self.hass, self.unique_id, self._update_state)
         )
 
+    @callback
     def _update_state(self, state_attributes: dict) -> None:
         """Handle a new event from the server."""
         self._state = state_attributes.get("event", self._state)
@@ -146,6 +147,7 @@ class SocTemperature(SensorEntity):
             )
         )
 
+    @callback
     def _update_state(self, value: float) -> None:
         """Handle a new temperature value."""
         self._attr_native_value = value

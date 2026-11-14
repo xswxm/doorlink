@@ -7,7 +7,7 @@ from homeassistant.const import Platform
 DOMAIN: Final = "doorlink"
 
 MANUFACTURER: Final = "doorlink"
-SW_VERSION: Final = "5.0.1"
+SW_VERSION: Final = "5.0.2"
 
 # Configuration
 CONF_SOC_TEMP: Final = "soc_temp"
